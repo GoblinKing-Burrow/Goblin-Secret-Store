@@ -9,7 +9,7 @@
 - Protected values are never returned to the management UI after creation.
 - Agents receive short-lived, caller-bound managed references rather than plaintext tool responses.
 - Access is denied by default and granted per record to named agents or explicitly to all agents.
-- Every protected-value use is rechecked against the current record version, caller, ACL, expiry, and provider availability.
+- Every agent managed-reference use is rechecked against the current record version, caller, ACL, expiry, and provider availability. Operator credential references in compatible Core settings are a separate authenticated-operator workflow, not agent ACL grants; see [operator references](agents.md#operator-credential-references-in-core-settings).
 - Management routes require an authenticated Burrow operator or, when Burrow authentication is disabled, a local vault session.
 - Sensitive responses use `Cache-Control: no-store`; browser sessions remain memory-only.
 

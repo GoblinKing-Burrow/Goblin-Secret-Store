@@ -14,6 +14,8 @@ const { createManagedPostgresLifecycle } = await import(pathToFileURL(`${core}/s
 const { loadMods, cleanupMods, createModRoute, modCatalog } = await import(
   `${core}/src/mod-runtime.mjs`
 );
+const { listSecretReferences, resolveSecretReference } = await import(`${core}/src/secret-references.mjs`);
+const { vaultSession } = await import("../ui/session.js");
 const { loadRuntimeMcpCapabilities } = await import(
   `${core}/src/runtime-capability-context.mjs`
 );
@@ -32,7 +34,9 @@ test("actual core child IPC routes/auth header/grants/managed consume/revocation
   await cp(new URL('../ui/', import.meta.url), path.join(dir, 'ui'), { recursive: true });
   await cp(new URL('../burrow.mod.json', import.meta.url), path.join(dir, 'burrow.mod.json'));
   const oldData = process.env.GSS_DATA_DIR,
-    oldKey = process.env.BURROW_SETTINGS_KEY;
+    oldKey = process.env.BURROW_SETTINGS_KEY,
+    oldLimits = process.env.GSS_LIMITS_JSON;
+  process.env.GSS_LIMITS_JSON = JSON.stringify({ sessionMs: 7200000 });
   process.env.GSS_DATA_DIR = path.join(root, "durable");
   const key = Buffer.alloc(32, 42);
   process.env.BURROW_SETTINGS_KEY = key.toString("base64");
@@ -101,7 +105,11 @@ test("actual core child IPC routes/auth header/grants/managed consume/revocation
     ]);
     assert.deepEqual(races.map((x) => x.status).sort(), [200, 409]);
     const boot = races.find((x) => x.status === 200);
-    const headers = { "x-gss-session": boot.body.session };
+    assert.equal(boot.body.expiresInMs, 7200000);
+    const localSession = vaultSession('integration', 'gss-configured');
+    localSession.set(boot.body);
+    assert.equal(localSession.authenticated(), true);
+    const headers = { "x-gss-session": localSession.current() };
     assert.equal(
       (await http("GET", "/records", {}, undefined, headers)).status,
       200,
@@ -126,6 +134,34 @@ test("actual core child IPC routes/auth header/grants/managed consume/revocation
       headers,
     );
     assert.equal(created.status, 200);
+    assert.deepEqual(mods[0].secretReferenceSchemes, ["gss"]);
+    const references = await mods[0].host.invoke("secret-reference-list:gss", {});
+    assert.equal(JSON.stringify(references).includes("integration-fixture-value"), false);
+    assert.deepEqual(references.references.map((entry) => entry.label), ["fixture — token"]);
+    assert.deepEqual(await mods[0].host.invoke("secret-reference-resolve:gss", references.references[0].reference), { value: "integration-fixture-value" });
+    // Exercise the actual Core catalog validator and resolver, not only raw IPC.
+    const names = ["a".repeat(128), "界".repeat(128), "😀".repeat(64), "\ud800", "sha256/" + "a".repeat(64), "a/b%{}"];
+    const edge = await http("POST", "/records", {
+      name: "😀".repeat(128), template: "custom",
+      fields: names.map(name => ({ name, type: "secret", protected: true, value: "edge-fixture" })),
+    }, undefined, headers);
+    assert.equal(edge.status, 200);
+    const catalog = await listSecretReferences(mods, { scheme: "gss" });
+    assert.equal(catalog.references.length, 1 + names.length);
+    assert.equal(JSON.stringify(catalog).includes("edge-fixture"), false);
+    const original = catalog.references.find(entry => entry.reference === `{{gss:${created.body.record.id}/token}}`);
+    assert.ok(original);
+    let edgeIndex = 0;
+    for (const entry of catalog.references) {
+      assert.ok(entry.label.length <= 240);
+      if (entry !== original) assert.ok(entry.label.endsWith(` — ${names[edgeIndex++]}`));
+      assert.equal(await resolveSecretReference(mods, entry.reference), entry === original ? "integration-fixture-value" : "edge-fixture");
+    }
+    // Previously saved name-based references continue to resolve, even when the
+    // new catalog must use a compact form for Core's 512-character path bound.
+    assert.deepEqual(await mods[0].host.invoke("secret-reference-resolve:gss",
+      `{{gss:${edge.body.record.id}/${encodeURIComponent(names[1])}}}`), { value: "edge-fixture" });
+    assert.equal((await http("DELETE", `/records/${edge.body.record.id}`, { version: edge.body.record.version }, undefined, headers)).status, 200);
     const audit = await http('GET', '/audit?limit=1', {}, undefined, headers);
     assert.equal(audit.status, 200); assert.equal(audit.body.events.length, 1);
     assert.ok(audit.body.nextCursor);
@@ -292,6 +328,8 @@ test("actual core child IPC routes/auth header/grants/managed consume/revocation
     }
     if (oldData === undefined) delete process.env.GSS_DATA_DIR;
     else process.env.GSS_DATA_DIR = oldData;
+    if (oldLimits === undefined) delete process.env.GSS_LIMITS_JSON;
+    else process.env.GSS_LIMITS_JSON = oldLimits;
     if (oldKey === undefined) delete process.env.BURROW_SETTINGS_KEY;
     else process.env.BURROW_SETTINGS_KEY = oldKey;
     // Retain the owned directory if shutdown failed, for diagnosis/recovery.

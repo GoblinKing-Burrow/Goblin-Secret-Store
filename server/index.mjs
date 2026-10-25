@@ -1,4 +1,29 @@
+import { createHash } from "node:crypto";
 import { Store, templates, fail } from "./store.mjs";
+// Adapt accepted metadata to Core's bounded reference/label grammar, not vice versa.
+// Keep existing short references stable; hash UTF-16 code units for every JS name,
+// including names containing lone surrogates that URI encoding cannot represent.
+const fieldKey = (name) => createHash("sha256").update(Buffer.from(name, "utf16le")).digest("hex");
+const credentialReference = (record, field) => {
+  try {
+    const path = `${record.id}/${encodeURIComponent(field.name)}`;
+    if (path.length <= 512) return `{{gss:${path}}}`;
+  } catch (error) {
+    if (!(error instanceof URIError)) throw error;
+  }
+  return `{{gss:${record.id}/sha256/${fieldKey(field.name)}}}`;
+};
+const shorten = (text, max) => {
+  if (text.length <= max) return text;
+  // Do not split a surrogate pair at the display boundary.
+  let end = max - 1;
+  if (/[\uD800-\uDBFF]/.test(text[end - 1])) end--;
+  return `${text.slice(0, end)}…`;
+};
+const credentialLabel = (record, field) => {
+  const label = `${record.name} — ${field.name}`;
+  return label.length <= 240 ? label : `${shorten(record.name, 240 - 3 - field.name.length)} — ${field.name}`;
+};
 export function activate(context) {
   let limits = {};
   if (process.env.GSS_LIMITS_JSON) {
@@ -89,6 +114,31 @@ export function activate(context) {
   route("post", "/restore", (r) =>
     store.restore(r.body?.passphrase, r.body?.backup),
   );
+  context.secretReferences?.register({
+    scheme: "gss",
+    list: () => ({
+      references: store.all().flatMap((record) => record.fields
+        .filter((field) => field.protected)
+        .map((field) => ({
+          reference: credentialReference(record, field),
+          label: credentialLabel(record, field),
+          type: ["credential", "secret", "token", "password", "private-key"].includes(field.type) ? field.type : "secret",
+          ...Object.fromEntries(record.fields.filter((candidate) => !candidate.protected && ["username", "url", "service"].includes(candidate.type)).map((candidate) => [candidate.type, candidate.value])),
+        }))),
+    }),
+    resolve: (reference) => {
+      const match = typeof reference === "string" ? reference.match(/^\{\{gss:([a-f0-9-]{36})\/(?:(sha256)\/([a-f0-9]{64})|([^{}]+))\}\}$/) : null;
+      if (!match) fail("invalid_reference", 400);
+      const record = store.raw(match[1]);
+      let name;
+      try { if (!match[2]) name = decodeURIComponent(match[4]); }
+      catch { fail("invalid_reference", 400); }
+      const field = record.fields.find((candidate) => candidate.protected &&
+        (match[2] ? fieldKey(candidate.name) === match[3] : candidate.name === name));
+      if (!field) fail("invalid_reference", 400);
+      return { value: store.protectedValue(record, field) };
+    },
+  });
   for (const action of ["list", "read", "use"])
     context.tools.register({
       name: `gss_${action}`,

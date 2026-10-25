@@ -490,7 +490,7 @@ test('shared session uses receipt-relative expiry despite server/browser clock s
 test('shared session rejects missing, non-positive, non-integral and excessive relative lifetimes', async () => {
   const { vaultSession } = await import('./session.js');
   const state = vaultSession('local', 'gss-duration-validation-test');
-  for (const expiresInMs of [undefined, 0, -1, 1.5, Number.NaN, Number.POSITIVE_INFINITY, 60 * 60 * 1000 + 1]) {
+  for (const expiresInMs of [undefined, 0, -1, 1.5, Number.NaN, Number.POSITIVE_INFINITY, Number.MAX_SAFE_INTEGER, Number.MAX_SAFE_INTEGER + 1]) {
     assert.throws(() => state.set({ session: 'invalid', expiresAt: Date.now() + 3600000, expiresInMs }), /Invalid vault session response/);
     assert.equal(state.current(), '');
   }
@@ -552,4 +552,21 @@ test('Archive renders historical timestamps, missing time, empty date and safe t
     assert.equal(root.descendants().some(n => n.tagName === 'table'), false);
     assert.ok(root.descendants().some(n => n.textContent === 'No vault activity for this date.'));
   } finally { mount.unmount(); globalThis.document = previous; }
+});
+
+
+test('shared session accepts configured lifetimes above one hour and expires at receipt-relative deadline', async () => {
+  const { vaultSession } = await import('./session.js');
+  const state = vaultSession('local', 'gss-configured-duration-test');
+  const previous = Date.now;
+  let now = 5000000000000;
+  Date.now = () => now;
+  try {
+    const duration = 2 * 60 * 60 * 1000;
+    state.set({ session: 'configured', expiresAt: -1, expiresInMs: duration });
+    now += duration - 1;
+    assert.equal(state.current(), 'configured');
+    now++;
+    assert.equal(state.current(), '');
+  } finally { Date.now = previous; }
 });
