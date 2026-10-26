@@ -289,3 +289,41 @@ test("legacy numeric revision ciphertext remains readable and migrates on edit/r
   const ref = s.agent("use", { id: restored.id, field: "token" }, caller).$burrowManaged;
   assert.equal(s.resolve(ref.reference, { ...caller, version: ref.version }), input.fields[0].value);
 });
+
+test("optional public service URL survives editing, discovery, restart and backup without widening grants", (t) => {
+  const f = fixture(t);
+  let r = f.s.put({ ...input, serviceUrl: "  https://auth.example.test:9443/application/  " });
+  assert.equal(r.serviceUrl, "https://auth.example.test:9443/application/");
+  assert.equal(f.s.agent("list", {}, caller).records[0].serviceUrl, r.serviceUrl);
+  assert.equal(f.s.agent("read", { id: r.id }, caller).record.serviceUrl, r.serviceUrl);
+  assert.deepEqual(f.s.agent("list", {}, { agentId: "unauthorized" }), { records: [] });
+  assert.throws(() => f.s.agent("read", { id: r.id }, { agentId: "unauthorized" }), /denied/);
+  assert.equal(JSON.stringify(f.s.agent("list", {}, caller)).includes(input.fields[0].value), false);
+  const { serviceUrl, ...omitted } = r;
+  r = f.s.put({ ...omitted, name: "renamed" }, r.id);
+  assert.equal(r.serviceUrl, serviceUrl);
+  f.restart();
+  assert.equal(f.s.view(f.s.raw(r.id)).serviceUrl, serviceUrl);
+  const backup = f.s.backup("backup-passphrase-long").backup;
+  f.s.restore("backup-passphrase-long", backup);
+  r = f.s.view(f.s.raw(r.id));
+  assert.equal(r.serviceUrl, serviceUrl);
+  assert.deepEqual(f.s.agent("list", {}, caller), { records: [] });
+  r = f.s.put({ ...r, serviceUrl: "" }, r.id);
+  assert.equal(r.serviceUrl, "");
+});
+
+test("service URL is optional on legacy records and rejects invalid public metadata atomically", (t) => {
+  const { s } = fixture(t);
+  let r = s.put(input);
+  assert.equal(r.serviceUrl, "");
+  const raw = s.raw(r.id); delete raw.serviceUrl;
+  s.db.prepare("UPDATE records SET data=? WHERE id=?").run(JSON.stringify(raw), r.id);
+  assert.equal(s.agent("list", {}, caller).records[0].serviceUrl, "");
+  for (const serviceUrl of [null, 123, {}, "not-a-url", "javascript:alert(1)", "https://user:secret@example.test", "x".repeat(4097)]) {
+    assert.throws(() => s.put({ ...r, serviceUrl }, r.id), /invalid_service_url/);
+    assert.equal(s.raw(r.id).version, r.version);
+  }
+  r = s.put({ ...r, serviceUrl: "http://10.10.20.110:9000" }, r.id);
+  assert.equal(r.serviceUrl, "http://10.10.20.110:9000");
+});

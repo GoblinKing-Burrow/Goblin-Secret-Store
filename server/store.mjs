@@ -288,6 +288,7 @@ export class Store {
   view(r) {
     return {
       ...r,
+      serviceUrl: r.serviceUrl ?? "",
       fields: r.fields.map((f) =>
         f.protected
           ? { name: f.name, type: f.type, protected: true, hasValue: true }
@@ -324,12 +325,24 @@ export class Store {
       input.fields.length > this.limits.fields
     )
       fail("invalid_record", 400);
+    // Public descriptive metadata, never used as an authorization decision.
+    const serviceUrl = input.serviceUrl === undefined ? (old?.serviceUrl ?? "") : input.serviceUrl;
+    if (typeof serviceUrl !== "string" || serviceUrl.length > 4096)
+      fail("invalid_service_url", 400);
+    const normalizedServiceUrl = serviceUrl.trim();
+    if (normalizedServiceUrl) {
+      let url;
+      try { url = new URL(normalizedServiceUrl); } catch { fail("invalid_service_url", 400); }
+      if (!["http:", "https:"].includes(url.protocol) || url.username || url.password)
+        fail("invalid_service_url", 400);
+    }
     const r = {
       id: old?.id || randomUUID(),
       // Opaque mutation identity, persisted with the record and authenticated in AAD.
       // Never derive it from imported/current revisions: deleted IDs may return.
       version: randomUUID(),
       name: input.name,
+      serviceUrl: normalizedServiceUrl,
       template: input.template,
       acl: this.acl(input.acl || { mode: "none", agents: [], active: true }),
       fields: [],

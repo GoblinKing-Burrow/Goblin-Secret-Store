@@ -128,6 +128,8 @@ export function mountManagement({ root, detailRoot = null, api, section = 'crede
     const name = input(); name.required = true; name.maxLength = 256; name.value = record?.name || '';
     const template = el('select'); for (const t of templates) { const option = el('option', t.id.replaceAll('-', ' ')); option.value = t.id; template.append(option); } template.value = record?.template || templates[0]?.id || 'custom';
     const basics = el('div', null, 'gss-fields'); basics.append(label('Credential name (public)', name), label('Credential template', template)); form.append(basics);
+    const serviceUrl = input('url'); serviceUrl.value = record?.serviceUrl || ''; serviceUrl.autocomplete = 'off';
+    form.append(label('Service URL (public, optional)', serviceUrl));
     const fields = el('div'); form.append(el('h3', 'Fields'), el('p', 'Public fields are visible to authorized agents. Protected fields are write-only here. Leave an existing protected field blank to keep its value.', 'gss-muted'), fields);
     let draft = record ? record.fields.map(f => ({ ...f })) : templates.find(t => t.id === template.value)?.fields.map(f => ({ ...f })) || [];
     function captureFields() {
@@ -188,7 +190,7 @@ export function mountManagement({ root, detailRoot = null, api, section = 'crede
       if (new Set(fieldData.map(f => f.name)).size !== fieldData.length || fieldData.some(f => !f.name)) { message('Each field needs a unique name.', true); return; }
       save.disabled = true;
       await operation(async () => {
-        const result = await write(record ? `/records/${encodeURIComponent(record.id)}` : '/records', record ? 'PUT' : 'POST', { ...(record ? { version: record.version } : {}), name: name.value.trim(), template: template.value, fields: fieldData, acl: record?.acl || { mode: 'none', agents: [], active: true } });
+        const result = await write(record ? `/records/${encodeURIComponent(record.id)}` : '/records', record ? 'PUT' : 'POST', { ...(record ? { version: record.version } : {}), name: name.value.trim(), serviceUrl: serviceUrl.value.trim(), template: template.value, fields: fieldData, acl: record?.acl || { mode: 'none', agents: [], active: true } });
         if (!live) return; selected = result.record.id; await load();
       }, 'Credential saved. Protected values cannot be viewed here.');
       if (live) save.disabled = false;

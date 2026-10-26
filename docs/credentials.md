@@ -38,3 +38,7 @@ Use **Agent sharing → Save access** to change permissions. After a restore, us
 ## Delete a credential
 
 Select the record, choose **Delete credential**, then **Confirm delete**. This removes the record and prevents future use through it, but cannot retract values already used outside the vault. A previous portable backup may still contain that credential.
+
+### Service URL
+
+The credential editor has an optional **Service URL (public, optional)** field for a service location such as `https://auth.example.test/`. It is separate from protected fields and visible to authorized agents in `gss_list`/`gss_read` without accessing a secret. Existing credentials can leave it blank; clear the field to remove it. Never include passwords, tokens, or sensitive URL parameters. It describes a location, not permission to call it; grants remain unchanged.

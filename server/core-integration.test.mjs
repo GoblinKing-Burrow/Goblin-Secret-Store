@@ -119,6 +119,7 @@ test("actual core child IPC routes/auth header/grants/managed consume/revocation
       "/records",
       {
         name: "fixture",
+        serviceUrl: "https://auth.example.test/",
         template: "token",
         fields: [
           {
@@ -190,6 +191,9 @@ test("actual core child IPC routes/auth header/grants/managed consume/revocation
     });
     const ownList = await execute('one', caps, 'gss_list');
     assert.deepEqual(ownList.nativeToolResults[0].output.records.map(r => r.id), [record.id]);
+    assert.equal(ownList.nativeToolResults[0].output.records[0].serviceUrl, "https://auth.example.test/");
+    const metadata = await execute('one', caps, 'gss_read', { id: record.id });
+    assert.equal(metadata.nativeToolResults[0].output.record.serviceUrl, "https://auth.example.test/");
     const hidden = await execute('two', other, 'gss_list');
     assert.deepEqual(hidden.nativeToolResults[0].output.records, []);
     for (const tool of ['gss_read', 'gss_use']) {

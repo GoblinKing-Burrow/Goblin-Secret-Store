@@ -130,7 +130,7 @@ test('new credential uses template fields and defaults to denied ACL', async () 
   root.descendants().find(n => n.textContent === 'Credential name (public)').children[0].value = 'Token';
   await form.fire('submit'); await flush();
   const payload = JSON.parse(calls.find(c => c[0] === '/records' && c[1]?.method === 'POST')[1].body);
-  assert.deepEqual(payload, { name: 'Token', template: 'token', fields: [{ name: 'token', type: 'token', protected: true, value: '' }], acl: { mode: 'none', agents: [], active: true } });
+  assert.deepEqual(payload, { name: 'Token', serviceUrl: '', template: 'token', fields: [{ name: 'token', type: 'token', protected: true, value: '' }], acl: { mode: 'none', agents: [], active: true } });
 }));
 test('two-column logout clears cached metadata from both surfaces and stale buttons cannot redraw it', async () => {
   const previous = globalThis.document; globalThis.document = { createElement: tag => new Element(tag) };
@@ -570,3 +570,43 @@ test('shared session accepts configured lifetimes above one hour and expires at 
     assert.equal(state.current(), '');
   } finally { Date.now = previous; }
 });
+
+for (const existingUrl of [undefined, 'https://auth.example.test/']) {
+  for (const nextUrl of [null, '  https://service.example.test/path  ', '']) {
+    test(`service URL metadata loads ${existingUrl ?? 'legacy blank'} and saves ${nextUrl ?? 'unchanged'}`, async () => fixture((path, init) => {
+      if (path === '/records') return { records: [{ id: 'r', name: 'Service', serviceUrl: existingUrl, template: 'token', version: 2, fields: [{ name: 'token', type: 'token', protected: true, hasValue: true }], acl: { mode: 'none', agents: [], active: true } }] };
+      if (path === '/records/r' && init?.method === 'PUT') return { record: { id: 'r' } };
+      return base(path);
+    }, async ({ root, calls, find }) => {
+      find('button', 'Service').click();
+      const url = labeled(root, 'Service URL (public, optional)');
+      assert.equal(url.type, 'url'); assert.equal(url.required, undefined);
+      assert.equal(url.value, existingUrl || '');
+      if (nextUrl !== null) url.value = nextUrl;
+      find('button', 'Add field').click();
+      rows(root).at(-1).children.find(n => n.textContent === 'Remove field').click();
+      assert.equal(url.value, nextUrl ?? existingUrl ?? '');
+      await root.descendants().find(n => n.tagName === 'form').fire('submit'); await flush();
+      const saved = JSON.parse(calls.find(([path, init]) => path === '/records/r' && init.method === 'PUT')[1].body);
+      assert.equal(saved.serviceUrl, (nextUrl ?? existingUrl ?? '').trim());
+      assert.deepEqual(saved.fields, [{ name: 'token', type: 'token', protected: true }]);
+      assert.deepEqual(saved.acl, { mode: 'none', agents: [], active: true });
+      assert.ok(calls.every(([path]) => path.startsWith('/')), 'URL remains descriptive; never requested');
+    }));
+  }
+}
+
+test('new credential saves service URL separately from secret fields and access', async () => fixture((path, init) => {
+  if (path === '/records' && !init?.method) return { records: [] };
+  if (path === '/records' && init?.method === 'POST') return { record: { id: 'created' } };
+  return base(path);
+}, async ({ root, calls }) => {
+  labeled(root, 'Credential name (public)').value = 'Service';
+  const url = labeled(root, 'Service URL (public, optional)');
+  assert.equal(url.value, ''); url.value = 'https://service.example.test/';
+  await root.descendants().find(n => n.tagName === 'form').fire('submit'); await flush();
+  const saved = JSON.parse(calls.find(([path, init]) => path === '/records' && init.method === 'POST')[1].body);
+  assert.equal(saved.serviceUrl, 'https://service.example.test/');
+  assert.equal(saved.fields.length, 1); assert.equal(saved.fields[0].name, 'token');
+  assert.deepEqual(saved.acl, { mode: 'none', agents: [], active: true });
+}));

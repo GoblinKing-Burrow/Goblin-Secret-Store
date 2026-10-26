@@ -246,3 +246,7 @@ npx --yes --package=node@22 node --test server/*.test.mjs ui/*.test.mjs
 ```
 
 See [API-CONTRACT.md](API-CONTRACT.md) for the browser/API contract and tool semantics.
+
+### Service URL
+
+The credential editor has an optional **Service URL (public, optional)** field for a service location such as `https://auth.example.test/`. It is separate from protected fields and visible to authorized agents in `gss_list`/`gss_read` without accessing a secret. Existing credentials can leave it blank; clear the field to remove it. Never include passwords, tokens, or sensitive URL parameters. It describes a location, not permission to call it; grants remain unchanged.
