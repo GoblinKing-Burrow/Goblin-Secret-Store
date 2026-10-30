@@ -200,12 +200,14 @@ export function mountManagement({ root, detailRoot = null, api, section = 'crede
   function access(panel, record) {
     const box = el('section'); box.append(el('h2', `Agent access · ${record.name}`), el('p', record.acl.active ? 'Explicit access is independent of Burrow tool grants.' : 'Restored assignment inactive. Regrant access explicitly; editing the record does not reactivate it.', 'gss-muted'));
     const mode = el('select'); for (const [value, text] of [['none', 'No agents'], ['agents', 'Selected agents'], ['all', 'All agents']]) { const option = el('option', text); option.value = value; mode.append(option); } mode.value = record.acl.mode; box.append(label('Access scope', mode));
-    const choices = el('div'); const chosen = new Map(); for (const agent of agents) { const checkbox = input('checkbox'); checkbox.checked = record.acl.agents.includes(agent.id); checkbox.disabled = agent.enabled === false; chosen.set(agent.id, checkbox); const item = el('label', null, 'gss-choice'); item.append(checkbox, el('span', `${agent.name || agent.id}${agent.enabled === false ? ' · unavailable' : ''}`)); choices.append(item); }
-    for (const id of record.acl.agents) if (!chosen.has(id)) choices.append(el('p', `${id} · unavailable; reassign access to remove this stale ID`, 'gss-muted'));
+    const choices = el('div'); const chosen = new Map(); const disabledIds = new Set(agents.filter(agent => agent.enabled === false).map(agent => agent.id));
+    for (const agent of agents) { if (agent.enabled === false) continue; const checkbox = input('checkbox'); checkbox.checked = record.acl.agents.includes(agent.id); chosen.set(agent.id, checkbox); const item = el('label', null, 'gss-choice'); item.append(checkbox, el('span', agent.name || agent.id)); choices.append(item); }
+    for (const id of record.acl.agents) if (!chosen.has(id) && !disabledIds.has(id)) choices.append(el('p', `${id} · unavailable; reassign access to remove this stale ID`, 'gss-muted'));
     box.append(choices);
     const sync = () => { choices.hidden = mode.value !== 'agents'; }; mode.addEventListener('change', sync); sync();
     box.append(button(record.acl.active ? 'Save access' : 'Regrant access', () => {
-      const ids = [...chosen].filter(([, checkbox]) => checkbox.checked && !checkbox.disabled).map(([id]) => id);
+      const ids = [...chosen].filter(([, checkbox]) => checkbox.checked).map(([id]) => id);
+      ids.push(...record.acl.agents.filter(id => disabledIds.has(id)));
       if (mode.value === 'agents' && !ids.length) { message('Choose at least one available agent.', true); return; }
       void operation(async () => { await write(`/records/${encodeURIComponent(record.id)}/acl`, 'PUT', { version: record.version, acl: { mode: mode.value, agents: mode.value === 'agents' ? ids : [], active: true } }); await load(); }, 'Agent access saved.');
     }, 'primary')); panel.append(box);

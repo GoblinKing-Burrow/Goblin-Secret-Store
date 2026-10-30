@@ -68,6 +68,32 @@ test('agent sharing saves explicit all-agent scope without redundant confirmatio
   find('button', 'Save access').click(); await flush();
   assert.deepEqual(JSON.parse(calls.find(c => c[0] === '/records/r/acl')[1].body).acl, { mode: 'all', agents: [], active: true });
 }, 'sharing'));
+test('sharing hides disabled agents and preserves their grants without changing stale-ID cleanup', async () => fixture((path, init) => {
+  if (path === '/records' && !init?.method) return { records: [{ id: 'r', name: 'Example', version: 2, fields: [], acl: { mode: 'agents', agents: ['a', 'disabled-granted', 'stale'], active: true } }] };
+  if (path === '/agents') return [{ id: 'a', name: 'Agent A', enabled: true }, { id: 'b', name: 'Agent B', enabled: true }, { id: 'disabled-granted', name: 'Hidden granted', enabled: false }, { id: 'disabled-other', name: 'Hidden other', enabled: false }];
+  if (path === '/records/r/acl') return {};
+  return base(path);
+}, async ({ root, calls, find }) => {
+  find('button', 'Example').click();
+  const text = root.descendants().map(n => n.textContent).join(' ');
+  assert.doesNotMatch(text, /Hidden granted|Hidden other|disabled-granted|disabled-other/);
+  assert.match(text, /stale · unavailable/);
+  const b = find('span', 'Agent B'); b.parent.children[0].checked = true;
+  find('button', 'Save access').click(); await flush();
+  assert.deepEqual(JSON.parse(calls.find(c => c[0] === '/records/r/acl')[1].body), { version: 2, acl: { mode: 'agents', agents: ['a', 'b', 'disabled-granted'], active: true } });
+}, 'sharing'));
+test('selected scope with only hidden grants remains savable; changing scope explicitly clears them', async () => fixture((path, init) => {
+  if (path === '/records' && !init?.method) return { records: [{ id: 'r', name: 'Example', version: 2, fields: [], acl: { mode: 'agents', agents: ['off'], active: true } }] };
+  if (path === '/agents') return [{ id: 'off', name: 'Hidden', enabled: false }];
+  if (path === '/records/r/acl') return {};
+  return base(path);
+}, async ({ root, calls, find }) => {
+  find('button', 'Example').click(); find('button', 'Save access').click(); await flush();
+  assert.deepEqual(JSON.parse(calls.filter(c => c[0] === '/records/r/acl')[0][1].body).acl, { mode: 'agents', agents: ['off'], active: true });
+  const scope = root.descendants().find(n => n.tagName === 'select' && n.parent?.textContent === 'Access scope'); scope.value = 'none'; scope.fire('change');
+  find('button', 'Save access').click(); await flush();
+  assert.deepEqual(JSON.parse(calls.filter(c => c[0] === '/records/r/acl')[1][1].body).acl, { mode: 'none', agents: [], active: true });
+}, 'sharing'));
 test('restore is gated by phrase, file, and typed confirmation; presents inactive ACL warning', async () => fixture((path, init) => {
   if (path === '/records') return { records: [] };
   if (path === '/restore') return { ok: true, restored: 1 };

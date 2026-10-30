@@ -1,5 +1,9 @@
 # Source and coverage
 
+## Current implementation baseline — 29 October 2026
+
+This ordinary delta pass uses implementation **2026.10.28**, commit `1292e41e4162f9f6522c416b28ce6df4e4ee9adf`, and reconciles the enabled-agent sharing picker and preservation of existing selected grants to disabled agents. Unchanged pages retain the prior dated review below. No application tests or provider calls were run. Source review is not runtime certification or a security audit; public package synchronization and installed capabilities remain separate checks.
+
 This guide describes the public Goblin Secret Store release line **2026.10.19**. Check the installed mod version when comparing behavior.
 
 | Area | Public source |
@@ -34,3 +38,4 @@ The original guides named the release line but did not pin every page to a commi
 `npm run build` performs JavaScript syntax checks. Full `npm test` also imports a compatible Core checkout (`BURROW_CORE_ROOT`), its installed dependencies, and PostgreSQL 17 with pgvector; the fixture owns a disposable cluster and must run as a non-root user.
 
 The 2026.10.19 public snapshot retains `server/development-release-workflow.test.mjs` but excludes the development release workflow it reads. The aggregate suite fails on that missing file. A focused unit-test pass or a documentation build must not be reported as a passing full integration suite.
+
