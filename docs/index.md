@@ -60,5 +60,5 @@ GSS is not a general password manager. There is no cloud sync, OAuth brokerage, 
 
 - [Storage and updates](storage.md), [configuration](configuration.md), and [troubleshooting](troubleshooting.md)
 - [API reference](api.md) and [source coverage](source-map.md)
-- [Burrow documentation](https://burrow-docs.blissful-psychosis.com/)
+- [Burrow documentation](https://docs.goblin-kingdom.com/)
 - [Public repository](https://github.com/GoblinKing-Burrow/Goblin-Secret-Store), [releases](https://github.com/GoblinKing-Burrow/Goblin-Secret-Store/releases), and [issues](https://github.com/GoblinKing-Burrow/Goblin-Secret-Store/issues)

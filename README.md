@@ -4,7 +4,7 @@
 
 # Goblin Secret Store [Burrow Mod]
 
-[Read the user documentation](https://burrow-docs.blissful-psychosis.com/goblin-secret-store/)
+[Read the user documentation](https://docs.goblin-kingdom.com/goblin-secret-store/)
 
 Goblin Secret Store is a Burrow mod for keeping credentials encrypted at rest and granting agents explicit, record-level access without exposing protected values in the browser.
 
