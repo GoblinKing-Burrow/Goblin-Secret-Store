@@ -1,6 +1,10 @@
 # Source and coverage
 
-## Current implementation baseline — 29 October 2026
+## Full reconciliation checkpoint — 1 November 2026
+
+All 13 guides in this section were reviewed against implementation **2026.10.28**, source commit `a80eef571c775a8b98891684811c669f34881d95`. Setup, configuration, authentication, credential editing, record ACLs, agent handles versus operator references, encryption/storage, backup and restore, audit paging, APIs, and troubleshooting were compared with the current implementation. Access-selector labels, API error statuses and the standalone documentation check command were corrected. This was a static documentation reconciliation, not application-test execution, a security audit, or verification of an installed runtime. Public package availability and installed Core/mod capabilities must still be checked separately.
+
+## Previous implementation checkpoint — 29 October 2026
 
 This ordinary delta pass uses implementation **2026.10.28**, commit `1292e41e4162f9f6522c416b28ce6df4e4ee9adf`, and reconciles the enabled-agent sharing picker and preservation of existing selected grants to disabled agents. Unchanged pages retain the prior dated review below. No application tests or provider calls were run. Source review is not runtime certification or a security audit; public package synchronization and installed capabilities remain separate checks.
 
@@ -22,7 +26,7 @@ Use Python 3.12 and install `requirements-docs.txt`, then run:
 
 ```sh
 python -m mkdocs build --strict
-python scripts/docs/check_site.py site
+python scripts/docs/check_site.py site --base-path /goblin-secret-store/
 ```
 
 The site is published from the public repository. See [releases](https://github.com/GoblinKing-Burrow/Goblin-Secret-Store/releases) and the [license](https://github.com/GoblinKing-Burrow/Goblin-Secret-Store/blob/main/LICENSE).

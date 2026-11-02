@@ -1,6 +1,6 @@
 # Goblin Secret Store v1 API (UI contract)
 
-Base `/api/mods/goblin-secret-store`. JSON requests/responses. Never log bodies or retain passwords, protected field inputs, session tokens or backup passphrases in persistent browser storage. Use `X-GSS-Session` for local sessions (core forwards this header). Core authenticated operators need no local session. Errors: `{error: "opaque_code"}` with 400/401/403/409/413/429.
+Base `/api/mods/goblin-secret-store`. JSON requests/responses. Never log bodies or retain passwords, protected field inputs, session tokens or backup passphrases in persistent browser storage. Use `X-GSS-Session` for local sessions (core forwards this header). Core authenticated operators need no local session. Errors: `{error: "opaque_code"}` with 400/401/403/404/409/413/429; unexpected internal failures return 500 `internal_error`. A missing management record returns 404 `not_found`; unauthorized agent lookups intentionally return a generic denial rather than revealing record existence.
 
 ## Authentication
 

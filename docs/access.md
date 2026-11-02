@@ -5,7 +5,7 @@ Open **Settings → Goblin Secret Store → Agent sharing**, choose the credenti
 
 Each record has an ACL with one of three modes:
 
-- **Nobody** — no agent can access the record.
+- **No agents** — no agent can access the record.
 - **Selected agents** — only the named agents can access it.
 - **All agents** — every current and future agent can access it. Selecting this mode and saving is the explicit grant; there is no second confirmation dialog.
 
@@ -23,5 +23,5 @@ Public fields, credential names, and ACL metadata are intentionally unencrypted.
 
 ## Stop access
 
-Set the record to **Nobody** and save, remove a selected agent and save, or disable the provider. Logging out of Settings does not stop granted agents. If a secret may already have escaped, revoke or rotate it with the service that issued it; a vault ACL cannot undo that disclosure.
+Set the record to **No agents** and save, remove a selected agent and save, or disable the provider. Logging out of Settings does not stop granted agents. If a secret may already have escaped, revoke or rotate it with the service that issued it; a vault ACL cannot undo that disclosure.
 
