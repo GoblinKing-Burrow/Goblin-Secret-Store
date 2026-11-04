@@ -1,11 +1,16 @@
 # Export, import, and recover
 
+
 !!! danger "Restore replaces the destination vault"
+
     Restore is not a merge. Export the destination first if its credentials matter. Every restored assignment must be reviewed and explicitly regranted.
+
 
 ## Portable encrypted export and restore
 
 **Settings → Goblin Secret Store → Backup & restore** can export a passphrase-encrypted portable backup containing all records and the source encryption material needed for a clean-install restore. The passphrase must be 12–1024 UTF-16 code units.
+
+Backup and restore remain separate immediate operations; they do not save an unrelated credential draft. The host shows one complete form on the left of a wide work area and the full available width on narrower screens.
 
 **Restore replaces every current credential; it does not merge records.** Export a backup of the destination first if you need to preserve its current contents.
 
@@ -46,3 +51,4 @@ GSS imports its own encrypted portable backup through **Backup & restore**. It d
 5. Protect or remove the test installation according to your own retention policy.
 
 Do not test a restore against your only live vault.
+

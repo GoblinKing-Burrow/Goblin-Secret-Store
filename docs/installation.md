@@ -3,6 +3,7 @@
 ### Requirements
 
 - Burrow with Git mod sources, Settings/Archive mod UI, verified operator authentication context, agent discovery, and the `mod-authorized` tool and managed-reference bridge
+- A compatible Burrow UI with imperative `form` / `form-inventory` layouts and shared `setDraft`, `navigate`, and `confirm` draft APIs. Missing draft APIs display an update message and disable vault editing; draft support alone does not prove layout compatibility.
 - A Burrow server runtime that loads the mod; standalone CLI agent runs do not load mod hosts
 - Node.js **22.13 or newer** (`node:sqlite`); tested with Node 22.23.2 and 24.20.0
 - Durable storage for the Burrow runtime or a dedicated `GSS_DATA_DIR`

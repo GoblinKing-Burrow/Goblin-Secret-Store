@@ -41,7 +41,7 @@ jobs:
       - name: Fast documentation gate
         run: |
           python -m mkdocs build --strict
-          python scripts/docs/check_site.py site
+          python scripts/docs/check_site.py site --base-path /goblin-secret-store/
       - name: Upload static documentation
         if: github.repository == 'GoblinKing-Burrow/Goblin-Secret-Store' && github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
         uses: actions/upload-pages-artifact@v4

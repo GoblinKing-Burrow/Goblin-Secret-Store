@@ -74,6 +74,7 @@ nav:
       - Create and edit credentials: credentials.md
       - Let agents use credentials: agents.md
   - Manage the vault:
+      - Burrow Settings: settings-ui.md
       - Agent access control: access.md
       - Export, import, and recovery: backup.md
       - Storage and updates: storage.md

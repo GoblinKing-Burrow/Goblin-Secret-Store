@@ -12,6 +12,12 @@
 Audit history lives in **Archive → MODS → Goblin Secret Store**.
 
 
+## Editor and unsaved changes
+
+Credentials use a bounded inventory beside the selected editor; new credentials use the same editor. Name, service URL, template and fields commit together with **Save credential**, preserving the existing access assignment and opaque version. On a host without an overflow surface, the credential picker remains available in a disclosure above the editor.
+
+Selecting another credential, creating another credential or logging out uses the shared Save/Discard/Stay guard. Failed writes retain entered values, selection and the unsaved state. While a write is in progress, controls and navigation are blocked to prevent duplicate requests. A successful save clears that draft even if the subsequent reload fails; read the visible reload error before assuming the refreshed view is ready.
+
 ## Choose a template
 
 | Template | Starting fields |
@@ -24,7 +30,7 @@ Audit history lives in **Archive → MODS → Goblin Secret Store**.
 
 The template supplies a starting shape. Check **Protected (write-only)** for every sensitive field, including any field you add yourself. New fields start public. The field type alone does not make a value protected.
 
-Private keys can be entered in multiline mode using **Enter multiline key (visible)**. This makes the draft visible on screen; use it only where nobody else can see your display.
+Private-key fields use textareas in both masked and visible modes, preserving line breaks. Choose **Enter multiline key (visible)** to reveal the draft. This makes the draft visible on screen; use it only where nobody else can see your display.
 
 ## Replace or clear a value
 
@@ -37,7 +43,7 @@ Use **Agent sharing → Save access** to change permissions. After a restore, us
 
 ## Delete a credential
 
-Select the record, choose **Delete credential**, then **Confirm delete**. This removes the record and prevents future use through it, but cannot retract values already used outside the vault. A previous portable backup may still contain that credential.
+Select the record, choose **Delete credential**, then confirm **Delete credential** in the host’s destructive-confirmation dialog. Cancelling preserves the draft. Confirming removes the record, discards its unsaved edits and prevents future use through it, but cannot retract values already used outside the vault. A previous portable backup may still contain that credential.
 
 ### Service URL
 

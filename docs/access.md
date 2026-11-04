@@ -3,13 +3,15 @@
 Open **Settings → Goblin Secret Store → Agent sharing**, choose the credential, set **Access scope**, and select **Save access**. For restored assignments the button is **Regrant access**.
 
 
+The credential inventory and sharing editor use the shared responsive layout. Access changes have their own **Save access** scope, separate from credential fields. Unsaved changes use Save/Discard/Stay when switching records or logging out; failed writes retain the selection and draft.
+
 Each record has an ACL with one of three modes:
 
 - **No agents** — no agent can access the record.
 - **Selected agents** — only the named agents can access it.
 - **All agents** — every current and future agent can access it. Selecting this mode and saving is the explicit grant; there is no second confirmation dialog.
 
-The Selected agents picker shows enabled agents only. Existing grants to disabled agents remain saved when you save this scope; hiding an agent does not revoke its grant. IDs no longer present in the directory are shown as unavailable and removed when you reassign access. Review retained grants before re-enabling an agent.
+The Selected agents picker shows enabled agents only. Existing grants to disabled agents remain saved when you save this scope; hiding an agent does not revoke its grant. IDs no longer present in the directory are shown as unavailable and removed by an explicit **Save access**, even if no visible checkbox changed. Review retained grants before re-enabling an agent.
 
 Agent identity comes only from Burrow's verified caller context, never from tool arguments. The tools are registered as `mod-authorized`, so their record ACL—not a stored per-agent MCP grant—is authoritative. To revoke access, change the record ACL or disable the provider.
 
@@ -18,8 +20,11 @@ References are bound to the exact agent, session, conversation, record version, 
 Public fields, credential names, and ACL metadata are intentionally unencrypted. Never place secrets in them.
 
 
+
 !!! warning "All agents includes future agents"
+
     Saving this scope is the grant. There is no second confirmation dialog. Prefer Selected agents and review permissions whenever agents or their tasks change.
+
 
 ## Stop access
 

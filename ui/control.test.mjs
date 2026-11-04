@@ -1,8 +1,11 @@
 import { mountArchive } from './archive.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mountManagement as mountControl } from './management.js';
-import { settingsSections, mountSettings } from './settings.js';
+import { mountManagement } from './management.js';
+import { settingsSections, mountSettings as mountSettingsWithHost } from './settings.js';
+const host = { setDraft() {}, navigate(proceed) { proceed(); }, confirm: async () => true };
+const mountControl = options => mountManagement({ ...host, ...options });
+const mountSettings = options => mountSettingsWithHost({ ...host, ...options });
 class Element {
   constructor(tag) { this.tagName = tag; this.children = []; this.listeners = new Map(); this.textContent = ''; this.value = ''; this.style = {}; this.files = []; this.hidden = false; }
   append(...items) { for (const item of items) { item.parent = this; this.children.push(item); } }
@@ -283,7 +286,7 @@ test('local logout clears the session header on subsequent status requests', asy
   assert.equal(calls.filter(c => c[0] === '/status').at(-1)[1].headers['X-GSS-Session'], undefined);
 }, 'credentials'));
 const labeled = (root, text) => root.descendants().find(n => n.tagName === 'label' && n.textContent === text)?.children[0];
-const rows = root => root.descendants().filter(n => n.className === 'gss-fields' && n.children.some(c => c.textContent === 'Field key (public)'));
+const rows = root => root.descendants().filter(n => n.className === 'settings-field-pair' && n.children.some(c => c.textContent === 'Field key (public)'));
 const rowInput = (row, label) => row.children.find(c => c.textContent === label)?.children[0];
 
 test('add and remove preserve unsaved field edits, protected replacement, and clear intent', async () => fixture((path, init) => {
@@ -463,7 +466,7 @@ test('Settings remount and Archive import share only a matching runtime/mod sess
     throw new Error(path);
   };
   const primary = { replace(node) { this.node = node; }, clear() { this.node = null; } }, root = new Element('root');
-  const context = { modId: 'gss-session-flow', runtimeScope: 'local', api };
+  const context = { ...host, modId: 'gss-session-flow', runtimeScope: 'local', api };
   let cleanup, panel;
   try {
     cleanup = settings({ ...context, section: 'credentials', primary }); await flush();

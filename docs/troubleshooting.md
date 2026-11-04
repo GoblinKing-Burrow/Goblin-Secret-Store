@@ -8,6 +8,10 @@
 - **`backup_limit` or `body_limit`:** check the configured limits and any smaller host/proxy limit. Do not modify or truncate a backup archive.
 
 
+## Settings requests a UI update
+
+The current GSS editor requires host `setDraft`, `navigate` and `confirm` APIs plus imperative `form` / `form-inventory` layout support. Missing draft APIs block editing rather than opening an unguarded editor. Update to a compatible UI; do not bypass the guard. Draft APIs alone do not prove that an older host supports the layout.
+
 ## Cannot claim or unlock the vault
 
 With Burrow authentication enabled, sign in as an operator; an API bearer token is not an operator session. With authentication disabled, use the local management password. There is no password-change or reset UI/API. The local password cannot recover a lost master key.
@@ -20,6 +24,8 @@ Check that the file is an unchanged GSS export and the passphrase is correct. A 
 
 ## Vault unavailable or stale form
 
+Failed writes preserve entered values and selection; do not assume a failed response saved them. A successful write followed by a reload failure clears the saved draft and reports the reload error separately. Resolve that error and reload before submitting again.
+
 Use **Retry** after resolving the underlying service/authentication problem. Reload a stale record after `version_conflict`; do not blindly repeat the old edit. Check service logs for startup failures without pasting secrets, passwords, tokens, or backup bodies into an issue.
 
 ## Audit history
@@ -27,3 +33,4 @@ Use **Retry** after resolving the underlying service/authentication problem. Rel
 Open **Archive → MODS → Goblin Secret Store**. Audit events contain redacted actions and outcomes, agent IDs, record IDs, and public credential names for authorized events. The date filter uses UTC; pagination reaches older retained events. Default retention is 10,000 events. Portable backups do not carry audit history.
 
 For help, use the [public issue tracker](https://github.com/GoblinKing-Burrow/Goblin-Secret-Store/issues) with versions, error codes, and redacted reproduction steps.
+
