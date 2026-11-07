@@ -6,7 +6,7 @@ GSS uses Burrow's shared Settings surfaces and controls. Install a Burrow UI con
 
 - **Credentials:** bounded credential inventory on the left, complete selected credential editor on the right. A new credential uses the same editor. Name, service URL, template, and fields commit together with **Save credential**. Existing ACL and opaque version are retained.
 - **Agent sharing:** the same inventory/editor arrangement, with a separate **Save access** or **Regrant access** action. Disabled-agent grants are preserved. Unavailable IDs remain visible and can be removed by explicit Save even when no visible checkbox changed.
-- **Backup & restore:** one complete form in the left half of a wide work area, full available width below the host's split threshold. Restore retains its disclosure, passphrase/file requirements and typed `RESTORE` confirmation. Backup and restore remain separate immediate operations; they never save an unrelated credential draft.
+- **Backup & restore:** encrypted backup in the main form and an expanded **Restore backup** section in the contextual third column on wide layouts. The host adapts columns on narrower screens; without an overflow surface Restore appears below backup. Passphrase/file requirements and typed `RESTORE` confirmation remain unchanged. Backup and restore remain separate immediate operations; they never save an unrelated credential draft.
 
 The host owns responsive tracks, navigation and Statistics. GSS does not add another column shell or a separate theme. When no overflow surface exists, credential selection remains available in a disclosed fallback above the editor. Long credential names wrap; the chosen item exposes `aria-pressed` and a visible Selected label.
 
@@ -29,3 +29,4 @@ Standalone checks without that integration environment:
 The Settings lifecycle tests cover unsupported hosts, layout metadata, fallback inventory, dirty/reverted drafts, failure retention, stale ACL cleanup, destructive confirmation, authentication invalidation, request deduplication and disposal. Actual ModSettingsHost integration and browser acceptance should also be run against the target host before release; standalone DOM tests do not prove pixel geometry.
 
 The module-owned primary and overflow wrappers explicitly opt into the shared normalized section/action rules. They do not acquire the workspace class or mutate host targets, and their overflow remains visible so the host keeps scroll ownership. This prevents legacy nested cards and grid-stretched actions in the extension shell. The portable actual-host computed-style regression is in `scripts/settings-host/`; its README explains how to run it in a Burrow-UI checkout.
+

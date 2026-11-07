@@ -42,7 +42,7 @@ async function fixture(run, { handler, confirm = async () => false, overflow: ha
 }
 
 test('Settings explicitly declares collection families and single backup scope', () => {
-  assert.deepEqual(settingsSections.map(({ id, layout }) => [id, layout]), [['credentials', 'form-inventory'], ['sharing', 'form-inventory'], ['backup', 'form']]);
+  assert.deepEqual(settingsSections.map(({ id, layout }) => [id, layout]), [['credentials', 'form-inventory'], ['sharing', 'form-inventory'], ['backup', undefined]]);
 });
 test('old host fails closed before fetching vault metadata', async () => fixture(({ calls, nodes }) => {
   assert.equal(calls.length, 0);

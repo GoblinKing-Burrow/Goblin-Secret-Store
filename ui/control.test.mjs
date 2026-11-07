@@ -140,7 +140,12 @@ test('each Settings selection mounts only its own management surface and clears 
       assert.ok(![...primary.node.descendants(), ...overflow.node.descendants()].some(n => n.textContent === absent), `${section} should not show ${absent}`);
       assert.ok(!has('Audit history'));
       assert.ok(![...primary.node.descendants(), ...overflow.node.descendants()].some(n => n.tagName === 'h1' && n.textContent === 'Goblin Secret Store'));
-      if (section === 'backup') assert.equal(overflow.node.descendants().length, 0);
+      if (section === 'backup') {
+        assert.ok(overflow.node.descendants().some(n => n.tagName === 'h2' && n.textContent === 'Restore backup'));
+        assert.ok(!primary.node.descendants().some(n => n.textContent === 'Replace credentials from backup'));
+        assert.ok(!overflow.node.descendants().some(n => ['details', 'summary'].includes(n.tagName)));
+        assert.ok(overflow.node.descendants().some(n => n.type === 'file' && n.className === 'gss-backup-file'));
+      }
       if (section === 'sharing') {
         overflow.node.descendants().find(n => n.tagName === 'button' && n.textContent === 'Existing').click();
         assert.ok(has('Save access'));
@@ -639,3 +644,54 @@ test('new credential saves service URL separately from secret fields and access'
   assert.equal(saved.fields.length, 1); assert.equal(saved.fields[0].name, 'token');
   assert.deepEqual(saved.acl, { mode: 'none', agents: [], active: true });
 }));
+
+test('backup Settings keeps restore in contextual column across validation, failure, retry and success', async () => {
+  const previous = globalThis.document; globalThis.document = { createElement: tag => new Element(tag) };
+  const surface = () => ({ replace(node) { this.node = node; }, clear() { this.node = null; } });
+  const primary = surface(), overflow = surface(), calls = []; let fail = true;
+  const cleanup = mountSettings({ section: 'backup', primary, overflow, runtimeScope: 'local', modId: 'gss-restore-column-test', api: async (path, init) => {
+    calls.push([path, init]);
+    if (path === '/records') return { records: [] };
+    if (path === '/restore') { if (fail) throw new Error('Synthetic restore failed'); return { restored: 1 }; }
+    return base(path);
+  } });
+  const nodes = () => overflow.node.descendants();
+  const restore = () => nodes().find(n => n.textContent === 'Replace credentials from backup');
+  const fill = () => {
+    nodes().find(n => n.type === 'file').files = [{ text: async () => '{"synthetic":true}' }];
+    nodes().find(n => n.type === 'password').value = 'synthetic-passphrase';
+    nodes().find(n => n.textContent === 'Type RESTORE to replace all credentials').children[0].value = 'RESTORE';
+  };
+  try {
+    await flush(); restore().click(); await flush();
+    assert.equal(calls.filter(([p]) => p === '/restore').length, 0);
+    fill(); restore().click(); await flush();
+    assert.ok(primary.node.descendants().some(n => n.role === 'alert' && n.textContent === 'Synthetic restore failed'));
+    assert.equal(nodes().find(n => n.type === 'password').value, '');
+    assert.equal(nodes().find(n => n.type === 'file').value, '');
+    assert.equal(nodes().find(n => n.textContent === 'Type RESTORE to replace all credentials').children[0].value, '');
+    fail = false; fill(); restore().click(); await flush();
+    assert.equal(calls.filter(([p]) => p === '/restore').length, 2);
+    assert.deepEqual(JSON.parse(calls.filter(([p]) => p === '/restore').at(-1)[1].body), { backup: '{"synthetic":true}', passphrase: 'synthetic-passphrase' });
+    assert.ok(restore()); assert.ok(!primary.node.descendants().some(n => n.textContent === 'Replace credentials from backup'));
+    assert.ok(primary.node.descendants().some(n => n.textContent === 'Restore completed. Regrant agent access explicitly.'));
+  } finally { cleanup(); globalThis.document = previous; }
+});
+
+test('backup restore column is removed when authentication is lost', async () => {
+  const previous = globalThis.document; globalThis.document = { createElement: tag => new Element(tag) };
+  const surface = () => ({ replace(node) { this.node = node; }, clear() { this.node = null; } });
+  const primary = surface(), overflow = surface(); let authenticated = true;
+  const cleanup = mountSettings({ section: 'backup', primary, overflow, runtimeScope: 'local', modId: 'gss-backup-auth-loss-test', api: async path => {
+    if (path === '/status') return { authMode: 'local', initialized: true, authenticated };
+    if (path === '/records') return { records: [] };
+    if (path === '/logout') { authenticated = false; return {}; }
+    return base(path);
+  } });
+  try {
+    await flush(); assert.ok(overflow.node.descendants().some(n => n.textContent === 'Restore backup'));
+    primary.node.descendants().find(n => n.textContent === 'Log out').click(); await flush();
+    assert.equal(overflow.node.descendants().length, 0);
+    assert.ok(primary.node.descendants().some(n => n.textContent === 'Unlock vault'));
+  } finally { cleanup(); globalThis.document = previous; }
+});

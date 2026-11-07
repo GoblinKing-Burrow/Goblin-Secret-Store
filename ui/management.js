@@ -20,9 +20,10 @@ export function mountManagement({ root, detailRoot = null, api, section = 'crede
   const input = (type = 'text') => { const n = el('input'); n.type = type; return n; };
   const notice = el('p', '', 'settings-status'); notice.setAttribute('role', 'status');
   const view = el('div', null, 'gss-settings settings-stack');
-  // Only secret masking is module-specific. The host owns layout and shared controls.
+  // Secret masking and the file-picker button are module-specific. The host owns layout and shared controls.
   const style = el('style');
-  style.textContent = '.gss-masked-value{-webkit-text-security:disc;text-security:disc}';
+  style.textContent = `.gss-masked-value{-webkit-text-security:disc;text-security:disc}
+.gss-backup-file::file-selector-button{margin-right:10px;padding:6px 10px;border:1px solid var(--line);border-radius:4px;background:var(--surface-hover,var(--surface-input));color:var(--text);font:inherit;font-weight:600;cursor:pointer}.gss-backup-file:hover::file-selector-button{border-color:var(--accent-border)}`;
   view.append(style);
   const content = el('div', null, 'settings-stack'); view.append(content, notice); root.replaceChildren(view);
   const unsubscribe = session.subscribe(() => { if (!live) return; invalidateManagementState(); void load(); });
@@ -132,9 +133,9 @@ export function mountManagement({ root, detailRoot = null, api, section = 'crede
     if (!session.authenticated()) { clearManagementState(); return; }
     if (section === 'backup') {
       content.replaceChildren();
-      extras(content);
-      if (status.authMode === 'local') content.append(logoutButton());
       detailRoot?.replaceChildren();
+      extras(content, detailRoot);
+      if (status.authMode === 'local') content.append(logoutButton());
       return;
     }
     const sidebar = el('section', null, 'setting-section settings-stack');
@@ -290,8 +291,8 @@ export function mountManagement({ root, detailRoot = null, api, section = 'crede
     actions.append(save); box.append(actions); panel.append(box);
     bindDraft(box, () => JSON.stringify([mode.value, [...chosen].map(([id, checkbox]) => [id, checkbox.checked])]), saveAccess, record.acl.active && record.acl.agents.every(id => chosen.has(id) || disabledIds.has(id)) ? save : null);
   }
-  function extras(container) {
-    const portability = el('section', null, 'setting-section settings-stack'); portability.append(el('h2', 'Encrypted backup and restore'));
+  function extras(container, restoreContainer = null) {
+    const portability = el('section', null, 'setting-section settings-stack'); portability.append(el('h2', 'Encrypted backup'));
     portability.append(el('p', 'Choose a separate backup passphrase (at least 12 characters). Keep the downloaded file and passphrase somewhere safe. Backups do not include this installation’s login password or audit history.', 'settings-help'));
     const pass = input('password'); pass.minLength = 12; pass.autocomplete = 'new-password'; portability.append(label('Backup passphrase', pass));
     portability.append(button('Download encrypted backup', () => {
@@ -302,17 +303,17 @@ export function mountManagement({ root, detailRoot = null, api, section = 'crede
         const url = URL.createObjectURL(new Blob([backup], { type: 'application/json' }));
         try { const link = el('a'); link.href = url; link.download = 'goblin-secret-store-backup.json'; link.style.display = 'none'; view.append(link); link.click(); link.remove(); } finally { setTimeout(() => URL.revokeObjectURL(url), 60000); }
       }, 'Encrypted backup downloaded.');
-    }));
-    const restore = el('details', null, 'settings-disclosure settings-stack'); restore.append(el('summary', 'Restore backup — replaces all credentials'));
+    }, 'primary'));
+    const restore = el('section', null, 'setting-section settings-stack'); restore.append(el('h2', 'Restore backup'));
     restore.append(el('p', 'Restore permanently replaces every current credential. All restored agent assignments will be inactive until you explicitly regrant them, including assignments to matching IDs. The current login password remains unchanged.', 'settings-help'));
-    const file = input('file'); file.accept = '.json,application/json'; restore.append(label('Encrypted backup file', file));
+    const file = input('file'); file.className = 'gss-backup-file'; file.accept = '.json,application/json'; restore.append(label('Encrypted backup file', file));
     const restorePass = input('password'); restorePass.autocomplete = 'off'; restore.append(label('Backup passphrase', restorePass));
     const confirm = input(); confirm.autocomplete = 'off'; restore.append(label('Type RESTORE to replace all credentials', confirm));
     restore.append(button('Replace credentials from backup', () => {
       if (!file.files?.[0] || !restorePass.value || confirm.value !== 'RESTORE') { message('Choose a backup, enter its passphrase, and type RESTORE.', true); return; }
       const phrase = restorePass.value, selectedFile = file.files[0]; restorePass.value = ''; confirm.value = ''; file.value = '';
       void operation(async () => { const backup = await selectedFile.text(); const result = await write('/restore', 'POST', { backup, passphrase: phrase }); selected = null; await load(); return result.restored; }, 'Restore completed. Regrant agent access explicitly.');
-    }, 'danger')); portability.append(restore); container.append(portability);
+    }, 'danger')); container.append(portability); (restoreContainer || container).append(restore);
   }
   content.replaceChildren(el('p', 'Loading vault…'));
   void load();

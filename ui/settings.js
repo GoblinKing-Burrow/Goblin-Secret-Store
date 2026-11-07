@@ -3,7 +3,7 @@ import { mountManagement } from './management.js';
 export const settingsSections = [
   { id: 'credentials', label: 'Credentials', layout: 'form-inventory' },
   { id: 'sharing', label: 'Agent sharing', layout: 'form-inventory' },
-  { id: 'backup', label: 'Backup & restore', layout: 'form' },
+  { id: 'backup', label: 'Backup & restore' },
 ];
 
 export function mountSettings({ section, primary, overflow, api, runtimeScope, modId, setDraft, navigate, confirm }) {

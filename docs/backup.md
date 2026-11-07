@@ -2,7 +2,6 @@
 
 
 !!! danger "Restore replaces the destination vault"
-
     Restore is not a merge. Export the destination first if its credentials matter. Every restored assignment must be reviewed and explicitly regranted.
 
 
@@ -10,12 +9,12 @@
 
 **Settings → Goblin Secret Store → Backup & restore** can export a passphrase-encrypted portable backup containing all records and the source encryption material needed for a clean-install restore. The passphrase must be 12–1024 UTF-16 code units.
 
-Backup and restore remain separate immediate operations; they do not save an unrelated credential draft. The host shows one complete form on the left of a wide work area and the full available width on narrower screens.
+Backup and restore remain separate immediate operations; they do not save an unrelated credential draft. Encrypted backup appears in the main Settings form; **Restore backup** appears in the contextual third column on wide layouts, with the host adapting columns on narrower screens. Restore is an expanded panel, not a disclosure to open.
 
 **Restore replaces every current credential; it does not merge records.** Export a backup of the destination first if you need to preserve its current contents.
 
 1. On the destination installation, enable the mod and authenticate in Settings (or claim its local management password).
-2. Open **Backup & restore → Restore backup — replaces all credentials**.
+2. Open **Backup & restore** and find **Restore backup**.
 3. Select the unchanged backup file, enter its backup passphrase, and type `RESTORE`.
 4. Select **Replace credentials from backup**.
 5. Review each restored record under **Agent sharing** and select **Regrant access** for the intended agents.
@@ -28,6 +27,8 @@ A restore:
 - preserves the destination's local management password;
 - excludes sessions, audit history, and live managed references; and
 - restores every ACL as inactive, including ACLs whose agent IDs still exist.
+
+The restore file, passphrase and confirmation inputs are cleared when a submission begins, including when it fails. Re-select the file and re-enter them for a retry. Loss of authentication removes the restore panel.
 
 After restoring, explicitly review and reassign every ACL. Keep the archive unchanged between export and restore, preserve its passphrase separately, and test recovery regularly.
 
@@ -51,4 +52,5 @@ GSS imports its own encrypted portable backup through **Backup & restore**. It d
 5. Protect or remove the test installation according to your own retention policy.
 
 Do not test a restore against your only live vault.
+
 
