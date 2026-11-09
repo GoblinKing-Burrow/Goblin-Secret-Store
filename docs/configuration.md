@@ -29,3 +29,7 @@ GSS_LIMITS_JSON={"records":2000,"bodyBytes":33554432}
 Set these variables on the Burrow service that hosts the mod. Invalid keys, non-integers, and values below 1 fail startup.
 
 The host or reverse proxy may impose a smaller body limit. Configure it to accept at least `bodyBytes`, and do not raise the mod limit beyond the host's memory and IPC budget. Backup export checks the complete UTF-8 restore envelope—including JSON escaping and passphrase overhead—and fails instead of creating an archive that cannot be restored under the configured limit.
+
+## Fixed bounds
+
+The local-session cap is 256 live sessions and the login/bootstrap attempt limit is ten per rolling minute across the vault. These are not `GSS_LIMITS_JSON` settings. Credential/field name lengths, ACL size and the 1–500 audit page-size range are also fixed; see [API validation](api.md#validation-bounds). Increasing a configurable storage limit does not raise those bounds or the host’s request limits.

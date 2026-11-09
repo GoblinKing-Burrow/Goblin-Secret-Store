@@ -1,5 +1,9 @@
 # Source and coverage
 
+## Full reconciliation checkpoint — 8 November 2026
+
+All 14 current guides were statically compared with implementation **2026.11.06**, source `6c3175d528fdb0ceb77a4f7a5cb71ac8b5b10945`: route authentication, local sessions, record validation and versions, agent ACLs and managed references, operator credential references, storage and recovery, audit paging, and the current Settings/Archive source. The home version and API validation limits were reconciled; configuration notes distinguish configurable limits from fixed bounds. Existing dated test results remain historical. No application tests, live vault operations, provider calls or security-setting changes were performed. This review is not runtime certification or a security audit; installed compatibility and public package availability remain separate checks.
+
 ## Ordinary maintenance — 4 November 2026
 
 Compared source `59177c2d881a51bc9c6b08ea913e400875cef7b3` with the previous ordinary baseline. Existing guides now cover the shared Settings inventory/form layouts, host compatibility, separate save scopes, draft guards, failure retention, stale ACL cleanup and destructive-confirmation labels. Evidence is `ui/settings.js`, `ui/management.js` and the Settings lifecycle test declarations; no application tests or live vault operations were run. Agent tool/server contracts and the GSS skill are unchanged. The standalone documentation workflow now supplies the required `/goblin-secret-store/` link-check base path. Unchanged pages retain their dated full-review evidence.

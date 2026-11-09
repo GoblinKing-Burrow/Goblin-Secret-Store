@@ -9,7 +9,7 @@ Goblin Secret Store keeps protected credential fields encrypted at rest in Burro
 [Install GSS](installation.md){ .md-button .md-button--primary }
 [Add your first credential](credentials.md){ .md-button }
 
-Current implementation guide · **2026.10.28** · [reviewed scope](source-map.md)
+Current implementation guide · **2026.11.06** · [reviewed scope](source-map.md)
 
 </div>
 

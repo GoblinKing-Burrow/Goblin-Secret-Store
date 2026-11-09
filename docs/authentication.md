@@ -14,7 +14,7 @@ When Burrow authentication is enabled, Core supplies verified operator authentic
 
 When Burrow authentication is disabled, the first browser visitor can create a local vault password. This bootstrap is safe only on a trusted network: isolate the service until the intended operator claims it. Local passwords use a random salt and scrypt (`N=32768`, `r=8`, `p=1`, 32-byte output). Sessions use 256-bit random tokens, stay in browser memory, and expire after one hour by default. Set `sessionMs` through [configuration](configuration.md) to change that lifetime. The UI uses the server-returned `expiresInMs` duration against its own clock rather than clamping to one hour or depending on synchronized clocks.
 
-Logout, expiry, observed auth-mode changes, and host restart invalidate local sessions. Settings and Archive share the same memory-only session for a runtime/mod identity. Authentication loss also invalidates in-flight management loads and clears cached management metadata from mounted surfaces.
+Logout, expiry, observed auth-mode changes, and host restart invalidate local sessions. Settings and Archive share the same memory-only session for a runtime/mod identity. Authentication loss also invalidates in-flight management loads and clears cached management metadata from mounted Settings surfaces. Archive verifies authentication when loading or paging; it is not a continuous session-status monitor.
 
 An authentication off/on round trip with no intervening mod request cannot be observed through the current Core contract. Restart the mod whenever changing Burrow authentication configuration to guarantee invalidation.
 
