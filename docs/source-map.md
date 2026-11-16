@@ -1,5 +1,10 @@
 # Source and coverage
 
+## Full reconciliation checkpoint — 15 November 2026
+
+All 13 consolidated guides were statically reconciled against implementation **2026.11.06**, source `18f1a44d60e4ed4f49767a252cab2fb316f3313e`, including unchanged pages. Review covered local/core authentication; templates, record validation and opaque revisions; record ACLs and agent handles; operator credential references; storage, encrypted export/restore, audit paging and Settings/Archive behavior. The existing user-facing contracts remain accurate; this checkpoint refreshes their evidence without claiming a runtime change. The owning repository’s additional Settings guide was also checked. Source and test declarations were inspected, not executed. No application tests, live service/provider calls, runtime changes or security-setting changes were performed. This is documentation reconciliation, not runtime certification or a security audit. Public promotion and installed capabilities must be verified separately.
+
+
 ## Full reconciliation checkpoint — 8 November 2026
 
 All 14 current guides were statically compared with implementation **2026.11.06**, source `6c3175d528fdb0ceb77a4f7a5cb71ac8b5b10945`: route authentication, local sessions, record validation and versions, agent ACLs and managed references, operator credential references, storage and recovery, audit paging, and the current Settings/Archive source. The home version and API validation limits were reconciled; configuration notes distinguish configurable limits from fixed bounds. Existing dated test results remain historical. No application tests, live vault operations, provider calls or security-setting changes were performed. This review is not runtime certification or a security audit; installed compatibility and public package availability remain separate checks.
