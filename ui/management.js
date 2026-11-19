@@ -311,8 +311,18 @@ export function mountManagement({ root, detailRoot = null, api, section = 'crede
     const confirm = input(); confirm.autocomplete = 'off'; restore.append(label('Type RESTORE to replace all credentials', confirm));
     restore.append(button('Replace credentials from backup', () => {
       if (!file.files?.[0] || !restorePass.value || confirm.value !== 'RESTORE') { message('Choose a backup, enter its passphrase, and type RESTORE.', true); return; }
+      if (!live || busy || !session.authenticated()) return;
+      const confirmationToken = session.current(), confirmationGeneration = authGeneration;
       const phrase = restorePass.value, selectedFile = file.files[0]; restorePass.value = ''; confirm.value = ''; file.value = '';
-      void operation(async () => { const backup = await selectedFile.text(); const result = await write('/restore', 'POST', { backup, passphrase: phrase }); selected = null; await load(); return result.restored; }, 'Restore completed. Regrant agent access explicitly.');
+      void operation(async () => {
+        const backup = await selectedFile.text();
+        // Reading the file can outlive the unlock that authorized replacement.
+        if (!live || !session.authenticated() || session.current() !== confirmationToken || authGeneration !== confirmationGeneration) {
+          throw new DOMException('Vault session changed. Confirm the restore again after unlocking.', 'AbortError');
+        }
+        await write('/restore', 'POST', { backup, passphrase: phrase });
+        selected = null; await load();
+      }, 'Restore completed. Regrant agent access explicitly.');
     }, 'danger')); container.append(portability); (restoreContainer || container).append(restore);
   }
   content.replaceChildren(el('p', 'Loading vault…'));

@@ -695,3 +695,44 @@ test('backup restore column is removed when authentication is lost', async () =>
     assert.ok(primary.node.descendants().some(n => n.textContent === 'Unlock vault'));
   } finally { cleanup(); globalThis.document = previous; }
 });
+
+test('restore confirmation is discarded when the vault unlock changes during file reading', async () => {
+  const { vaultSession } = await import('./session.js');
+  const modId = 'gss-restore-generation-test', session = vaultSession('local', modId);
+  const oldDocument = globalThis.document;
+  globalThis.document = { createElement: tag => new Element(tag) };
+  const root = new Element('root'), requests = [];
+  let finishRead;
+  const fileText = new Promise(resolve => { finishRead = resolve; });
+  session.set({ session: 'first-unlock', expiresInMs: 60_000 });
+  const cleanup = mountControl({ root, section: 'backup', runtimeScope: 'local', modId, api: async (path, init) => {
+    requests.push([path, init]);
+    if (path === '/status') return { authMode: 'local', initialized: true, authenticated: !!init.headers['X-GSS-Session'] };
+    if (path === '/records') return { records: [] };
+    if (path === '/restore') return { restored: 1 };
+    return base(path);
+  } });
+  const confirmRestore = text => {
+    root.descendants().find(n => n.type === 'file').files = [{ text }];
+    root.descendants().filter(n => n.type === 'password').at(-1).value = 'synthetic-passphrase';
+    root.descendants().find(n => n.textContent === 'Type RESTORE to replace all credentials').children[0].value = 'RESTORE';
+    root.descendants().find(n => n.textContent === 'Replace credentials from backup').click();
+  };
+  try {
+    await flush();
+    confirmRestore(() => fileText);
+    session.invalidate('first-unlock');
+    session.set({ session: 'second-unlock', expiresInMs: 60_000 });
+    await flush();
+    finishRead('{"old":true}');
+    await flush();
+    assert.equal(requests.filter(([path]) => path === '/restore').length, 0);
+    assert.ok(root.descendants().some(n => n.role === 'alert' && /Confirm the restore again/.test(n.textContent)));
+    confirmRestore(async () => '{"fresh":true}');
+    await flush();
+    const restored = requests.filter(([path]) => path === '/restore');
+    assert.equal(restored.length, 1);
+    assert.equal(restored[0][1].headers['X-GSS-Session'], 'second-unlock');
+    assert.equal(JSON.parse(restored[0][1].body).backup, '{"fresh":true}');
+  } finally { cleanup(); session.invalidate('second-unlock'); globalThis.document = oldDocument; }
+});
