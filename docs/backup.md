@@ -28,7 +28,7 @@ A restore:
 - excludes sessions, audit history, and live managed references; and
 - restores every ACL as inactive, including ACLs whose agent IDs still exist.
 
-The restore file, passphrase and confirmation inputs are cleared when a submission begins, including when it fails. Re-select the file and re-enter them for a retry. Loss of authentication removes the restore panel.
+The restore file, passphrase and confirmation inputs are cleared when a submission begins, including when it fails. Re-select the file and re-enter them for a retry. Loss of authentication removes the restore panel. If the unlock session changes while the selected file is being read, the pending restore is discarded before the restore request is sent. Unlock again, re-select the file, enter its passphrase and type `RESTORE` again; an earlier confirmation does not carry into the new unlock session.
 
 After restoring, explicitly review and reassign every ACL. Keep the archive unchanged between export and restore, preserve its passphrase separately, and test recovery regularly.
 
@@ -52,5 +52,3 @@ GSS imports its own encrypted portable backup through **Backup & restore**. It d
 5. Protect or remove the test installation according to your own retention policy.
 
 Do not test a restore against your only live vault.
-
-
