@@ -48,11 +48,13 @@ test('old host fails closed before fetching vault metadata', async () => fixture
   assert.equal(calls.length, 0);
   assert.ok(nodes().some(node => /Update Burrow UI/.test(node.textContent)));
 }, { missingHost: true }));
-test('inventory uses selected native controls, bounded scrolling and a disclosed no-overflow fallback', async () => fixture(({ find, nodes }) => {
+test('inventory uses selected native controls, host-owned scrolling and a disclosed no-overflow fallback', async () => fixture(({ find, nodes }) => {
   const picker = find('Credential one'); picker.click();
   assert.equal(find('Credential one')['aria-pressed'], 'true');
   assert.ok(nodes().some(node => node.tagName === 'details' && node.className === 'settings-disclosure'));
-  assert.ok(nodes().some(node => node.className === 'memory-connection-list' && node.style.overflowY === 'auto'));
+  const list = nodes().find(node => node.className === 'memory-connection-list');
+  assert.equal(list.style.maxHeight, undefined);
+  assert.equal(list.style.overflowY, undefined);
 }, { overflow: false }));
 test('draft becomes clean again when edited values are reverted', async () => fixture(({ find, draft }) => {
   find('Credential one').click();
@@ -124,7 +126,9 @@ test('stale-only ACL cleanup remains an explicit enabled action without editing 
 } }));
 test('none/all sharing scopes hide agent choice container even with shared grid styles', async () => fixture(({ find, nodes }) => {
   find('Credential one').click(); const scope = find('Access scope').children[0];
-  const choices = nodes().find(node => node.style.maxHeight === 'min(360px, 45dvh)');
+  const choices = nodes().find(node => node['aria-label'] === 'Agent choices');
+  assert.equal(choices.style.maxHeight, undefined);
+  assert.equal(choices.style.overflowY, undefined);
   assert.equal(choices.hidden, true); assert.equal(choices.style.display, 'none');
   scope.value = 'agents'; scope.fire('change'); assert.equal(choices.hidden, false); assert.equal(choices.style.display, '');
   scope.value = 'all'; scope.fire('change'); assert.equal(choices.hidden, true); assert.equal(choices.style.display, 'none');

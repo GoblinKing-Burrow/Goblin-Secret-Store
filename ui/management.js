@@ -142,8 +142,6 @@ export function mountManagement({ root, detailRoot = null, api, section = 'crede
     sidebar.append(el('h2', 'Credentials'));
     const list = el('div', null, 'memory-connection-list');
     list.setAttribute('aria-label', 'Credentials');
-    list.style.maxHeight = 'min(480px, 60dvh)';
-    list.style.overflowY = 'auto';
     if (!records.length) list.append(el('p', section === 'sharing' ? 'No credentials to share yet. Create one under Credentials first.' : 'No credentials yet. Create one to get started.', 'settings-empty'));
     for (const record of records) {
       const row = el('div', null, 'memory-connection');
@@ -274,7 +272,9 @@ export function mountManagement({ root, detailRoot = null, api, section = 'crede
   function access(panel, record) {
     const box = el('section', null, 'setting-section settings-stack'); box.append(el('h2', `Agent access · ${record.name}`), el('p', record.acl.active ? 'Explicit access is independent of Burrow tool grants.' : 'Restored assignment inactive. Regrant access explicitly; editing the record does not reactivate it.', 'settings-help'));
     const mode = el('select'); for (const [value, text] of [['none', 'No agents'], ['agents', 'Selected agents'], ['all', 'All agents']]) { const option = el('option', text); option.value = value; mode.append(option); } mode.value = record.acl.mode; box.append(label('Access scope', mode));
-    const choices = el('div', null, 'settings-stack'); choices.style.maxHeight = 'min(360px, 45dvh)'; choices.style.overflowY = 'auto'; const chosen = new Map(); const disabledIds = new Set(agents.filter(agent => agent.enabled === false).map(agent => agent.id));
+    const choices = el('div', null, 'settings-stack');
+    choices.setAttribute('role', 'group'); choices.setAttribute('aria-label', 'Agent choices');
+    const chosen = new Map(); const disabledIds = new Set(agents.filter(agent => agent.enabled === false).map(agent => agent.id));
     for (const agent of agents) { if (agent.enabled === false) continue; const checkbox = input('checkbox'); checkbox.checked = record.acl.agents.includes(agent.id); chosen.set(agent.id, checkbox); const item = el('label', null, 'settings-checkbox-row'); item.append(checkbox, el('span', agent.name || agent.id)); choices.append(item); }
     for (const id of record.acl.agents) if (!chosen.has(id) && !disabledIds.has(id)) choices.append(el('p', `${id} · unavailable; reassign access to remove this stale ID`, 'settings-help'));
     box.append(choices);

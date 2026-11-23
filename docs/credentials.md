@@ -14,7 +14,7 @@ Audit history lives in **Archive → MODS → Goblin Secret Store**.
 
 ## Editor and unsaved changes
 
-Credentials use a bounded inventory beside the selected editor; new credentials use the same editor. Name, service URL, template and fields commit together with **Save credential**, preserving the existing access assignment and opaque version. On a host without an overflow surface, the credential picker remains available in a disclosure above the editor.
+Credentials use a list in its own Settings pane beside the selected editor; new credentials use the same editor. Name, service URL, template and fields commit together with **Save credential**, preserving the existing access assignment and opaque version. On a host without an overflow surface, the credential picker remains available in a disclosure above the editor.
 
 Selecting another credential, creating another credential or logging out uses the shared Save/Discard/Stay guard. Failed writes retain entered values, selection and the unsaved state. While a write is in progress, controls and navigation are blocked to prevent duplicate requests. A successful save clears that draft even if the subsequent reload fails; read the visible reload error before assuming the refreshed view is ready.
 
