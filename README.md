@@ -250,3 +250,7 @@ See [API-CONTRACT.md](API-CONTRACT.md) for the browser/API contract and tool sem
 ### Service URL
 
 The credential editor has an optional **Service URL (public, optional)** field for a service location such as `https://auth.example.test/`. It is separate from protected fields and visible to authorized agents in `gss_list`/`gss_read` without accessing a secret. Existing credentials can leave it blank; clear the field to remove it. Never include passwords, tokens, or sensitive URL parameters. It describes a location, not permission to call it; grants remain unchanged.
+
+## Identity deletion cleanup
+
+This version requires Core2026.11.26.2 or later. Update Core before the mod. The mod consumes Core's durable identity-deletion lifecycle, removes exact deleted-identity operational references in its own store, and reconciles pre-existing missing identities. Disabled/hidden identities are retained. Shared credentials, connected accounts, and other identities' records are not deleted merely because one goblin is removed. Cleanup failures stay pending and retryable in Core's deletion receipts (`GET /api/agents/deletions`); this release does not install or restart live Core.

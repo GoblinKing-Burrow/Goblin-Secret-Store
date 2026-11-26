@@ -410,6 +410,22 @@ export class Store {
       true,
     );
   }
+  removeDeletedAgent(agentId) {
+    if (typeof agentId !== "string" || !agentId) throw new Error("deleted_agent_invalid");
+    return this.transaction(() => {
+      const rows = this.db.prepare("SELECT id,data FROM records ORDER BY id").all();
+      let changed = 0;
+      for (const row of rows) {
+        const record = JSON.parse(row.data);
+        if (record.acl?.mode !== "agents" || !record.acl.agents.includes(agentId)) continue;
+        record.acl = { ...record.acl, agents: record.acl.agents.filter((id) => id !== agentId) };
+        record.version = randomUUID();
+        this.db.prepare("UPDATE records SET data=? WHERE id=?").run(JSON.stringify(record), row.id);
+        changed++;
+      }
+      return { changed };
+    });
+  }
   agent(action, args, c) {
     try {
       if (!str(c?.agentId)) fail();

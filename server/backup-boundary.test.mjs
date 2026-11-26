@@ -22,7 +22,7 @@ for (const passphrase of ["boundary-passphrase", '"\\\n\t😀'.repeat(200).slice
       const handlers = new Map();
       process.env.GSS_DATA_DIR = directory;
       process.env.GSS_LIMITS_JSON = JSON.stringify({ bodyBytes: limit });
-      close = activate({ api: Object.fromEntries(["get", "post", "put", "delete"].map(method => [method, (p, handler) => handlers.set(`${method} ${p}`, handler)])), tools: { register() {} } });
+      close = activate({ agents: { list: async () => [] }, api: Object.fromEntries(["get", "post", "put", "delete"].map(method => [method, (p, handler) => handlers.set(`${method} ${p}`, handler)])), tools: { register() {} } });
       const call = (p, body) => handlers.get(`post ${p}`)({ body, auth: { enabled: true, authenticated: true } });
       const exported = await call("/backup", { passphrase });
       assert.equal(exported.status, 200);
@@ -36,7 +36,7 @@ for (const passphrase of ["boundary-passphrase", '"\\\n\t😀'.repeat(200).slice
       // Archive alone fitting is insufficient: export must now refuse that budget.
       close(); close = undefined;
       process.env.GSS_LIMITS_JSON = JSON.stringify({ bodyBytes: limit - 1 });
-      close = activate({ api: Object.fromEntries(["get", "post", "put", "delete"].map(method => [method, (p, handler) => handlers.set(`${method} ${p}`, handler)])), tools: { register() {} } });
+      close = activate({ agents: { list: async () => [] }, api: Object.fromEntries(["get", "post", "put", "delete"].map(method => [method, (p, handler) => handlers.set(`${method} ${p}`, handler)])), tools: { register() {} } });
       assert.deepEqual((await call("/backup", { passphrase })).body, { error: "backup_limit" });
     } finally {
       close?.();

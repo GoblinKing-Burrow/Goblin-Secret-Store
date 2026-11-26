@@ -8,6 +8,9 @@ const mountControl = options => mountManagement({ ...host, ...options });
 const mountSettings = options => mountSettingsWithHost({ ...host, ...options });
 class Element {
   constructor(tag) { this.tagName = tag; this.children = []; this.listeners = new Map(); this.textContent = ''; this.value = ''; this.style = {}; this.files = []; this.hidden = false; }
+  // Native selector buttons have a strong label; mirror their DOM textContent.
+  get textContent() { return (this._textContent || '') + (this.tagName === 'button' ? this.children.map(child => child.textContent).join('') : ''); }
+  set textContent(value) { this._textContent = value; }
   append(...items) { for (const item of items) { item.parent = this; this.children.push(item); } }
   replaceChildren(...items) { this.children = []; this.append(...items); }
   setAttribute(k, v) { this[k] = v; }

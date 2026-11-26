@@ -37,6 +37,21 @@ function fixture(t) {
     },
   };
 }
+test("deleted-agent cleanup removes only exact explicit grants and preserves history and secrets", (t) => {
+  const f = fixture(t);
+  const exact = f.s.put(input);
+  const unrelated = f.s.put({ ...input, name: "unrelated", acl: { mode: "agents", agents: ["one-extra"], active: true } });
+  const all = f.s.put({ ...input, name: "all", acl: { mode: "all", agents: [], active: true } });
+  const auditBefore = f.s.auditPage({}).entries;
+  const result = f.s.removeDeletedAgent("one");
+  assert.deepEqual(result, { changed: 1 });
+  assert.deepEqual(f.s.raw(exact.id).acl.agents, []);
+  assert.deepEqual(f.s.raw(unrelated.id).acl.agents, ["one-extra"]);
+  assert.equal(f.s.raw(all.id).acl.mode, "all");
+  assert.equal(f.s.raw(exact.id).fields[0].encrypted.data.length > 0, true);
+  assert.equal(JSON.stringify(result).includes(input.fields[0].value), false);
+  assert.deepEqual(f.s.auditPage({}).entries, auditBefore);
+});
 test("crypto binding, persistence, modes, CRUD versions and managed revocation", (t) => {
   const f = fixture(t);
   let s = f.s;

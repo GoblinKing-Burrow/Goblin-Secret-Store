@@ -58,7 +58,7 @@ test("actual core child IPC routes/auth header/grants/managed consume/revocation
     pool = new Pool({ host: socketDir, port: 5432, database: "postgres", user: os.userInfo().username });
     app = await createPostgresApplication({ pool, encryptionKey: key, runtimeRoot: root, bootstrapSampleIdentities: false });
     const { stores, modStoreFactory, enabledModIds, modCatalogWriter } = app;
-    modDependencies = { stores, modStoreFactory, enabledModIds, modCatalogWriter };
+    modDependencies = { stores, modStoreFactory, enabledModIds, modCatalogWriter, resolveAgentRuntime: async () => { throw new Error('runtime_not_used_by_fixture'); } };
     await pool.query("INSERT INTO mod_lifecycle(mod_id,enabled,created_at,updated_at) VALUES($1,TRUE,$2,$2)", ["goblin-secret-store", new Date().toISOString()]);
     mods = await loadMods({ runtimeRoot: root, ...modDependencies });
     assert.equal(mods[0]?.status, "loaded", mods[0]?.error);

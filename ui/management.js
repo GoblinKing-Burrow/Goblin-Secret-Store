@@ -20,9 +20,10 @@ export function mountManagement({ root, detailRoot = null, api, section = 'crede
   const input = (type = 'text') => { const n = el('input'); n.type = type; return n; };
   const notice = el('p', '', 'settings-status'); notice.setAttribute('role', 'status');
   const view = el('div', null, 'gss-settings settings-stack');
-  // Secret masking and the file-picker button are module-specific. The host owns layout and shared controls.
+  // Module-specific details use the host's tokens; the host owns layout and shared controls.
   const style = el('style');
   style.textContent = `.gss-masked-value{-webkit-text-security:disc;text-security:disc}
+.settings-fidgit .settings-content-standard .profile-document-selector.gss-credential-list{display:grid;grid-template-columns:minmax(0,1fr);overflow:visible}
 .gss-backup-file::file-selector-button{margin-right:10px;padding:6px 10px;border:1px solid var(--line);border-radius:4px;background:var(--surface-hover,var(--surface-input));color:var(--text);font:inherit;font-weight:600;cursor:pointer}.gss-backup-file:hover::file-selector-button{border-color:var(--accent-border)}`;
   view.append(style);
   const content = el('div', null, 'settings-stack'); view.append(content, notice); root.replaceChildren(view);
@@ -140,21 +141,21 @@ export function mountManagement({ root, detailRoot = null, api, section = 'crede
     }
     const sidebar = el('section', null, 'setting-section settings-stack');
     sidebar.append(el('h2', 'Credentials'));
-    const list = el('div', null, 'memory-connection-list');
+    // Use the native compact selector, including its active outline and label.
+    const list = el('div', null, 'profile-document-selector gss-credential-list');
     list.setAttribute('aria-label', 'Credentials');
     if (!records.length) list.append(el('p', section === 'sharing' ? 'No credentials to share yet. Create one under Credentials first.' : 'No credentials yet. Create one to get started.', 'settings-empty'));
     for (const record of records) {
-      const row = el('div', null, 'memory-connection');
-      const b = button(record.name, () => {
+      const b = button(null, () => {
         if (!session.authenticated()) { clearManagementState(); return; }
         if (selected === record.id) return;
         guarded(() => { selected = record.id; render(); });
-      }, 'memory-connection-select');
+      }, selected === record.id ? 'gss-credential active' : 'gss-credential');
       b.setAttribute('aria-pressed', String(selected === record.id));
+      b.style.justifySelf = 'stretch';
       b.style.overflowWrap = 'anywhere'; b.style.whiteSpace = 'normal';
-      row.append(b);
-      if (selected === record.id) row.append(el('span', 'Selected', 'settings-help'));
-      list.append(row);
+      b.append(el('strong', record.name));
+      list.append(b);
     }
     sidebar.append(list);
     if (status.authMode === 'local') sidebar.append(logoutButton());

@@ -50,9 +50,27 @@ export function activate(context) {
     }
   }
   const store = new Store({ limits });
+  let ready = Promise.resolve();
+  const reconcile = async () => {
+    const identities = await context.agents.list({ includeHidden: true });
+    if (!Array.isArray(identities) || identities.some(agent => !agent || typeof agent.id !== "string")) throw new Error("agent_directory_invalid");
+    const present = new Set(identities.filter((agent) => agent && typeof agent.id === "string").map((agent) => agent.id));
+    for (const record of store.all()) {
+      if (record.acl?.mode !== "agents") continue;
+      for (const agentId of record.acl.agents) if (!present.has(agentId)) store.removeDeletedAgent(agentId);
+    }
+  };
+  ready = reconcile();
+  void ready.catch(() => {});
+  if (typeof context.agents.onDeleted === "function") context.agents.onDeleted((event) => {
+    const action = ready.catch(() => {}).then(() => store.removeDeletedAgent(event.agentId));
+    ready = action;
+    return action;
+  });
   const route = (method, path, handler, publicRoute = false) =>
     context.api[method](path, async (req) => {
       try {
+        await ready;
         if (
           Buffer.byteLength(JSON.stringify(req.body ?? {})) >
           store.limits.bodyBytes

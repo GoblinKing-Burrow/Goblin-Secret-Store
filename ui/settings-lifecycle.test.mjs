@@ -5,6 +5,9 @@ import { vaultSession } from './session.js';
 
 class Element {
   constructor(tag) { this.tagName = tag; this.children = []; this.listeners = new Map(); this.value = ''; this.style = {}; this.textContent = ''; }
+  // Native selector buttons have a strong label; mirror their DOM textContent.
+  get textContent() { return (this._textContent || '') + (this.tagName === 'button' ? this.children.map(child => child.textContent).join('') : ''); }
+  set textContent(value) { this._textContent = value; }
   append(...nodes) { for (const node of nodes) { node.parent = this; this.children.push(node); } }
   replaceChildren(...nodes) { this.children = []; this.append(...nodes); }
   setAttribute(key, value) { this[key] = value; }
@@ -52,10 +55,41 @@ test('inventory uses selected native controls, host-owned scrolling and a disclo
   const picker = find('Credential one'); picker.click();
   assert.equal(find('Credential one')['aria-pressed'], 'true');
   assert.ok(nodes().some(node => node.tagName === 'details' && node.className === 'settings-disclosure'));
-  const list = nodes().find(node => node.className === 'memory-connection-list');
+  const list = nodes().find(node => node.className === 'profile-document-selector gss-credential-list');
   assert.equal(list.style.maxHeight, undefined);
   assert.equal(list.style.overflowY, undefined);
 }, { overflow: false }));
+for (const section of ['credentials', 'sharing']) for (const overflow of [true, false]) {
+  test(`${section} inventory uses one highlight target without Selected labels (overflow: ${overflow})`, async () => fixture(({ find, nodes }) => {
+    const selectedNames = () => nodes().filter(node => node['aria-pressed'] === 'true').map(node => node.textContent);
+    const check = expected => {
+      assert.deepEqual(selectedNames(), expected);
+      assert.equal(nodes().some(node => node.textContent === 'Selected'), false);
+      for (const name of ['Credential one', 'Credential two']) {
+        const picker = find(name);
+        assert.equal(picker.parent.className, 'profile-document-selector gss-credential-list');
+        assert.equal(picker.className, expected.includes(name) ? 'gss-credential active' : 'gss-credential');
+        assert.equal(picker.children.length, 1);
+        assert.equal(picker.children[0].tagName, 'strong');
+        assert.equal(picker.children[0].textContent, name);
+        assert.equal(picker.style.justifySelf, 'stretch');
+      }
+    };
+    check([]);
+    find('Credential one').click(); check(['Credential one']);
+    find('Credential two').click(); check(['Credential two']);
+    find('Credential two').click(); check(['Credential two']);
+    if (section === 'credentials') { find('Create another credential').click(); check([]); }
+  }, { section, overflow, handler: path => path === '/records' ? { records: [structuredClone(record), { ...structuredClone(record), id: 'r2', name: 'Credential two' }] } : undefined }));
+}
+test('dirty navigation keeps the original highlighted credential until navigation is accepted', async () => fixture(({ find, nodes, proceed }) => {
+  find('Credential one').click();
+  const name = find('Credential name (public)').children[0]; name.value = 'changed'; name.fire('input');
+  find('Credential two').click();
+  const selectedNames = () => nodes().filter(node => node['aria-pressed'] === 'true').map(node => node.textContent);
+  assert.deepEqual(selectedNames(), ['Credential one']);
+  proceed(); assert.deepEqual(selectedNames(), ['Credential two']);
+}, { handler: path => path === '/records' ? { records: [structuredClone(record), { ...structuredClone(record), id: 'r2', name: 'Credential two' }] } : undefined }));
 test('draft becomes clean again when edited values are reverted', async () => fixture(({ find, draft }) => {
   find('Credential one').click();
   const name = find('Credential name (public)').children[0];
