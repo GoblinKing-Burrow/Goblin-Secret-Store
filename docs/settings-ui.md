@@ -16,7 +16,7 @@ Credential and sharing drafts register with Burrow's shared Save/Discard/Stay me
 
 Deletion uses the host's destructive confirmation. Cancellation preserves the draft. Disposal or authentication invalidation prevents an old confirmation from issuing a delete. Requests are aborted on disposal, and stale authentication-generation results cannot repopulate a later session.
 
-Protected values remain write-only. An unchanged existing protected field with a blank input omits its value, while explicit clear submits an empty string. Private keys remain textareas in both masked and visible modes to preserve line breaks. Drafts and session tokens stay in memory only. Restore never reactivates agent access implicitly.
+Protected values remain write-only. Leaving an existing protected field blank preserves it, even when renamed if the type is unchanged. Select **Clear protected value** to empty it explicitly. Private keys remain textareas in both masked and visible modes to preserve line breaks. Drafts and session tokens stay in memory only. Restore never reactivates agent access implicitly.
 
 ## Validation
 

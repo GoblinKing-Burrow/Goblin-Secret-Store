@@ -34,9 +34,9 @@ Private-key fields use textareas in both masked and visible modes, preserving li
 
 ## Replace or clear a value
 
-Protected fields are write-only in Settings: saved values cannot be revealed or copied back out. For an existing protected field with the same name and type, leave its value blank to keep it, enter a new value to replace it, or select **Replace stored value with an empty string** to clear it.
+Protected fields are write-only in Settings: saved values cannot be revealed or copied back out. Leave an existing protected field blank to keep its value, even if you rename it, as long as its type is unchanged. Type a new value to replace it, or select **Clear protected value** to empty it.
 
-Renaming a field, changing its type, or changing whether it is protected changes that field's identity. Supply its intended value again; a blank changed field does not retain the old secret. Changing an existing credential's template keeps its fields until you adjust them explicitly.
+Changing a protected field’s type requires a replacement or an explicit clear. Renaming the field invalidates references to its old name; obtain or update references after saving. Changing an existing credential's template keeps its fields until you adjust them explicitly.
 
 Use **Agent sharing → Save access** to change permissions. After a restore, use **Regrant access**; editing and saving the credential alone does not reactivate its restored assignment.
 

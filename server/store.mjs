@@ -76,6 +76,9 @@ export function encrypt(key, value, binding) {
     tag: c.getAuthTag().toString("base64"),
   };
 }
+// GCM ciphertext has the plaintext byte length. Empty values have an empty
+// payload even in legacy records; no decryption or schema migration is needed.
+export const hasProtectedValue = (field) => field.encrypted?.data?.length > 0;
 export function decrypt(key, v, binding) {
   const c = createDecipheriv("aes-256-gcm", key, Buffer.from(v.iv, "base64"));
   c.setAAD(Buffer.from(binding));
@@ -291,7 +294,7 @@ export class Store {
       serviceUrl: r.serviceUrl ?? "",
       fields: r.fields.map((f) =>
         f.protected
-          ? { name: f.name, type: f.type, protected: true, hasValue: true }
+          ? { name: f.name, type: f.type, protected: true, hasValue: hasProtectedValue(f) }
           : { ...f },
       ),
     };
@@ -348,6 +351,7 @@ export class Store {
       fields: [],
     };
     const names = new Set();
+    const preserved = new Set();
     for (const f of input.fields) {
       if (
         !f ||
@@ -359,12 +363,24 @@ export class Store {
         fail("invalid_field", 400);
       names.add(f.name);
       let value = f.value;
-      const prior = old?.fields.find(
-        (x) =>
-          x.name === f.name && x.type === f.type && x.protected === f.protected,
-      );
-      if (value === undefined && f.protected && prior)
+      if (f.clear !== undefined) {
+        if (!old || !f.protected || f.clear !== true || value !== undefined || f.preserveFrom !== undefined)
+          fail("invalid_field_clear", 400);
+        value = "";
+      } else if (f.preserveFrom !== undefined || (f.protected && value === undefined)) {
+        if (!f.protected || value !== undefined || (f.preserveFrom !== undefined && !str(f.preserveFrom, 128)))
+          fail("invalid_field_preservation", 400);
+        const prior = old?.fields.find(
+          (field) => field.name === (f.preserveFrom ?? f.name) && field.type === f.type && field.protected,
+        );
+        if (!prior || preserved.has(prior.name)) fail("invalid_field_preservation", 400);
+        preserved.add(prior.name);
         value = decrypt(this.key, prior.encrypted, bind(old, prior));
+      } else if (old && f.protected && value === "") {
+        // Older editors send an empty replacement on rename. Reject it atomically
+        // rather than guessing a source or treating the blank as an intentional clear.
+        fail("protected_value_clear_required", 400);
+      }
       if (
         typeof value !== "string" ||
         Buffer.byteLength(value) > this.limits.valueBytes
@@ -444,7 +460,7 @@ export class Store {
       if (!this.allowed(r, c)) fail();
       if (action === "read") return { record: this.agentView(r) };
       const f = r.fields.find((f) => f.name === args?.field && f.protected);
-      if (!f) fail();
+      if (!f || !hasProtectedValue(f)) fail();
       for (const [k, v] of this.refs)
         if (v.expires <= Date.now()) this.refs.delete(k);
       if (this.refs.size >= this.limits.refs) fail("reference_limit", 429);

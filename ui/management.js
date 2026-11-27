@@ -185,8 +185,14 @@ export function mountManagement({ root, detailRoot = null, api, section = 'crede
     const basics = el('div', null, 'settings-field-pair'); basics.append(label('Credential name (public)', name), label('Credential template', template)); body.append(basics);
     const serviceUrl = input('url'); serviceUrl.value = record?.serviceUrl || ''; serviceUrl.autocomplete = 'off';
     body.append(label('Service URL (public, optional)', serviceUrl));
-    const fields = el('div', null, 'settings-stack'); body.append(el('h3', 'Fields'), el('p', 'Public fields are visible to authorized agents. Protected fields are write-only here. Leave an existing protected field blank to keep its value.', 'settings-help'), fields);
-    let draft = record ? record.fields.map(f => ({ ...f })) : templates.find(t => t.id === template.value)?.fields.map(f => ({ ...f })) || [];
+    const fields = el('div', null, 'settings-stack'); body.append(el('h3', 'Fields'), el('p', record
+      ? 'Blank keeps the protected value, even when renamed. If the type changes, enter a new value or select Clear protected value.'
+      : 'Public fields are visible to authorized agents. Protected fields are write-only.', 'settings-help'), fields);
+    // Only persisted protected rows get an origin; the editable key is not their identity.
+    let draft = record ? record.fields.map(f => ({
+      name: f.name, type: f.type, protected: f.protected,
+      ...(f.protected ? { protectedOrigin: { name: f.name, type: f.type } } : { value: f.value }),
+    })) : templates.find(t => t.id === template.value)?.fields.map(f => ({ ...f })) || [];
     function captureFields() {
       for (const field of draft) {
         if (!field._nodes) continue;
@@ -194,7 +200,7 @@ export function mountManagement({ root, detailRoot = null, api, section = 'crede
         field.name = fieldName.value;
         field.type = fieldType.value;
         field.protected = protectedBox.checked;
-        field.editValue = value.value;
+        if (!clear?.checked) field.editValue = value.value;
         field.clear = clear?.checked || false;
       }
     }
@@ -212,10 +218,23 @@ export function mountManagement({ root, detailRoot = null, api, section = 'crede
         const value = privateKey ? el('textarea') : input(field.protected ? 'password' : 'text');
         if (privateKey && !multiline) { value.className = 'gss-masked-value'; value.autocomplete = 'off'; value.spellcheck = false; }
         value.value = field.editValue ?? (field.protected ? '' : field.value || '');
-        value.placeholder = field.protected && field.hasValue ? 'Stored — leave blank to keep' : '';
+        const origin = field.protected && field.protectedOrigin;
+        const hint = origin ? (origin.type === field.type ? 'Blank keeps value' : 'Enter a new value or clear') : field.protected && record ? 'Enter a value' : '';
+        value.placeholder = hint;
         row.append(label('Field key (public)', fieldName), label('Field type', fieldType), label(multiline ? 'Field value (visible while editing)' : 'Field value', value));
         if (privateKey) row.append(button(multiline ? 'Mask private key' : 'Enter multiline key (visible)', () => { captureFields(); field.keyVisible = !field.keyVisible; drawFields(); }));
-        let clear; if (field.protected && field.hasValue) { clear = input('checkbox'); clear.checked = field.clear || false; const clearLabel = el('label', null, 'settings-checkbox-row'); clearLabel.append(clear, el('span', 'Replace stored value with an empty string')); row.append(clearLabel); }
+        let clear;
+        if (origin) {
+          clear = input('checkbox'); clear.checked = field.clear || false;
+          const syncClear = () => {
+            value.readOnly = clear.checked;
+            value.placeholder = clear.checked ? 'Will be cleared' : hint;
+            value.value = clear.checked ? '' : (field.editValue ?? '');
+          };
+          clear.addEventListener('input', () => { if (clear.checked) field.editValue = value.value; syncClear(); });
+          syncClear();
+          const clearLabel = el('label', null, 'settings-checkbox-row'); clearLabel.append(clear, el('span', 'Clear protected value')); row.append(clearLabel);
+        }
         const toggle = el('label', null, 'settings-checkbox-row'); toggle.append(protectedBox, el('span', 'Protected (write-only)')); row.append(toggle);
         row.append(button('Remove field', () => { captureFields(); draft.splice(index, 1); drawFields(); })); fields.append(row);
         field._nodes = { fieldName, fieldType, protectedBox, value, clear };
@@ -248,14 +267,21 @@ export function mountManagement({ root, detailRoot = null, api, section = 'crede
       if (!live || busy) return false;
       if (form.reportValidity && !form.reportValidity()) return false;
       captureFields();
-      const fieldData = draft.map(f => {
-        const next = { name: f.name.trim(), type: f.type, protected: f.protected };
-        // Only the same protected field may omit value. Blank on a changed/new field is a literal blank.
-        const unchanged = record?.fields.some(old => old.name === next.name && old.type === next.type && old.protected === next.protected && old.hasValue);
-        if (!next.protected || f.editValue !== '' || f.clear || !unchanged) next.value = f.editValue ?? '';
-        return next;
-      });
+      const fieldData = draft.map(f => ({ name: f.name.trim(), type: f.type, protected: f.protected }));
       if (new Set(fieldData.map(f => f.name)).size !== fieldData.length || fieldData.some(f => !f.name)) { message('Each field needs a unique name.', true); return false; }
+      for (const [index, next] of fieldData.entries()) {
+        const f = draft[index], origin = f.protectedOrigin, value = f.editValue ?? '';
+        if (!next.protected) next.value = value;
+        else if (origin && f.clear) next.clear = true;
+        else if (value !== '' || !record) next.value = value;
+        else if (origin?.type === next.type) {
+          if (origin.name !== next.name) next.preserveFrom = origin.name;
+        } else {
+          message(origin ? `Enter a new value for “${next.name}” or choose Clear protected value.` : `Enter a value for the new protected field “${next.name}”.`, true);
+          f._nodes.value.focus?.();
+          return false;
+        }
+      }
       save.disabled = true;
       const saved = await operation(async () => {
         const result = await write(record ? `/records/${encodeURIComponent(record.id)}` : '/records', record ? 'PUT' : 'POST', { ...(record ? { version: record.version } : {}), name: name.value.trim(), serviceUrl: serviceUrl.value.trim(), template: template.value, fields: fieldData, acl: record?.acl || { mode: 'none', agents: [], active: true } });
@@ -266,7 +292,7 @@ export function mountManagement({ root, detailRoot = null, api, section = 'crede
     form.addEventListener('submit', e => { e.preventDefault(); return saveCredential(); });
     changed = bindDraft(form, () => {
       captureFields();
-      return JSON.stringify([name.value, serviceUrl.value, template.value, draft.map(f => [f.name, f.type, f.protected, f.editValue, f.clear])]);
+      return JSON.stringify([name.value, serviceUrl.value, template.value, draft.map(f => [f.name, f.type, f.protected, f.editValue, f.clear, f.protectedOrigin?.name])]);
     }, saveCredential, save);
     panel.append(form);
   }

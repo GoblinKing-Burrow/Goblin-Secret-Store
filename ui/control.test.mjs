@@ -48,7 +48,7 @@ test('first-visitor claim uses POST bootstrap and retains session in memory only
   assert.equal(passwords[0].value, ''); assert.ok(find('h2', 'New credential'));
 }));
 test('editing omits existing protected value but retains public value', async () => fixture((path, init) => {
-  if (path === '/records' && !init?.method) return { records: [{ id: 'r', name: 'Example', template: 'token', version: 2, fields: [{ name: 'token', type: 'token', protected: true, hasValue: true }, { name: 'site', type: 'url', protected: false, value: 'https://example.org' }], acl: { mode: 'none', agents: [], active: true } }] };
+  if (path === '/records' && !init?.method) return { records: [{ id: 'r', name: 'Example', template: 'token', version: 2, fields: [{ name: 'token', type: 'token', protected: true, hasValue: true }, { name: 'optionalToken', type: 'token', protected: true, hasValue: false }, { name: 'site', type: 'url', protected: false, value: 'https://example.org' }], acl: { mode: 'none', agents: [], active: true } }] };
   if (path === '/records/r' && init?.method === 'PUT') return { record: { id: 'r' } };
   return base(path);
 }, async ({ root, calls, find }) => {
@@ -59,7 +59,7 @@ test('editing omits existing protected value but retains public value', async ()
   assert.equal(find('button', 'Save access'), undefined);
   const form = root.descendants().find(n => n.tagName === 'form'); await form.fire('submit'); await flush();
   const saved = JSON.parse(calls.find(c => c[0] === '/records/r' && c[1]?.method === 'PUT')[1].body);
-  assert.deepEqual(saved.fields, [{ name: 'token', type: 'token', protected: true }, { name: 'site', type: 'url', protected: false, value: 'https://example.org' }]);
+  assert.deepEqual(saved.fields, [{ name: 'token', type: 'token', protected: true }, { name: 'optionalToken', type: 'token', protected: true }, { name: 'site', type: 'url', protected: false, value: 'https://example.org' }]);
 }));
 test('agent sharing saves explicit all-agent scope without redundant confirmation', async () => fixture((path, init) => {
   if (path === '/records' && !init?.method) return { records: [{ id: 'r', name: 'Example', template: 'token', version: 2, fields: [], acl: { mode: 'none', agents: [], active: true } }] };
@@ -297,6 +297,110 @@ const labeled = (root, text) => root.descendants().find(n => n.tagName === 'labe
 const rows = root => root.descendants().filter(n => n.className === 'settings-field-pair' && n.children.some(c => c.textContent === 'Field key (public)'));
 const rowInput = (row, label) => row.children.find(c => c.textContent === label)?.children[0];
 
+const savedField = (name, type = 'secret') => ({ name, type, protected: true, hasValue: true });
+const clearControl = row => row.children.find(n => n.children.some(c => c.textContent === 'Clear protected value'))?.children[0];
+const submitCredential = root => root.descendants().find(n => n.tagName === 'form').fire('submit');
+const credentialUpdates = calls => calls.filter(([path, init]) => path === '/records/r' && init.method === 'PUT').map(([, init]) => JSON.parse(init.body));
+const editCredential = (fields, run, update = () => ({ record: { id: 'r' } })) => fixture((path, init) => {
+  if (path === '/records') return { records: [{ id: 'r', name: 'Existing', version: 'opaque-v1', template: 'custom', fields, acl: { mode: 'none', agents: [], active: true } }] };
+  if (path === '/records/r' && init.method === 'PUT') return update();
+  return base(path);
+}, async context => {
+  context.find('button', 'Existing').click();
+  await run(context);
+});
+
+test('blank protected renames, including a name swap, preserve from each original row', async () => editCredential([
+  savedField('first'), { ...savedField('second'), hasValue: false }, savedField('oldKey', 'private-key'),
+], async ({ root, calls, find }) => {
+  const [first, second, key] = rows(root);
+  assert.equal(rowInput(first, 'Field value').value, '');
+  rowInput(first, 'Field key (public)').value = ' second ';
+  rowInput(second, 'Field key (public)').value = 'first';
+  rowInput(key, 'Field key (public)').value = 'newKey';
+  find('button', 'Enter multiline key (visible)').click();
+  assert.equal(rowInput(rows(root)[2], 'Field value (visible while editing)').value, '');
+  await submitCredential(root);
+  assert.deepEqual(credentialUpdates(calls)[0].fields, [
+    { name: 'second', type: 'secret', protected: true, preserveFrom: 'first' },
+    { name: 'first', type: 'secret', protected: true, preserveFrom: 'second' },
+    { name: 'newKey', type: 'private-key', protected: true, preserveFrom: 'oldKey' },
+  ]);
+}));
+
+test('remove and re-add at the same name and type never inherits the removed protected value', async () => editCredential([savedField('token', 'token')], async ({ root, calls, find }) => {
+  find('button', 'Remove field').click();
+  find('button', 'Add field').click();
+  let [row] = rows(root);
+  rowInput(row, 'Field key (public)').value = 'token';
+  rowInput(row, 'Field type').value = 'token';
+  const protectedBox = row.children.find(n => n.children.some(c => c.textContent === 'Protected (write-only)')).children[0];
+  protectedBox.checked = true; protectedBox.fire('change');
+  [row] = rows(root);
+  assert.equal(clearControl(row), undefined);
+  assert.equal(await submitCredential(root), false);
+  assert.equal(credentialUpdates(calls).length, 0);
+  assert.ok(find('p', 'Enter a value for the new protected field “token”.'));
+  rowInput(row, 'Field value').value = 'synthetic-new-token';
+  await submitCredential(root);
+  assert.deepEqual(credentialUpdates(calls)[0].fields, [{ name: 'token', type: 'token', protected: true, value: 'synthetic-new-token' }]);
+}));
+
+test('protected type changes require a replacement or explicit clear; rename does not send both', async () => editCredential([savedField('replace'), savedField('erase')], async ({ root, calls, find }) => {
+  const changeType = index => {
+    const type = rowInput(rows(root)[index], 'Field type'); type.value = 'token'; type.fire('change');
+  };
+  changeType(0); changeType(1);
+  assert.equal(rowInput(rows(root)[0], 'Field value').placeholder, 'Enter a new value or clear');
+  assert.equal(await submitCredential(root), false);
+  assert.equal(credentialUpdates(calls).length, 0);
+  assert.ok(find('p', 'Enter a new value for “replace” or choose Clear protected value.'));
+  for (const row of rows(root)) {
+    const input = rowInput(row, 'Field key (public)'); input.value += '-renamed';
+    rowInput(row, 'Field value').value = 'synthetic-replacement';
+  }
+  const [ , erase] = rows(root), clear = clearControl(erase), hiddenDraft = rowInput(erase, 'Field value');
+  clear.checked = true; clear.fire('input');
+  assert.equal(hiddenDraft.readOnly, true); assert.equal(hiddenDraft.value, '');
+  clear.checked = false; clear.fire('input');
+  assert.equal(hiddenDraft.readOnly, false); assert.equal(hiddenDraft.value, 'synthetic-replacement');
+  clear.checked = true; clear.fire('input');
+  await submitCredential(root);
+  assert.deepEqual(credentialUpdates(calls)[0].fields, [
+    { name: 'replace-renamed', type: 'token', protected: true, value: 'synthetic-replacement' },
+    { name: 'erase-renamed', type: 'token', protected: true, clear: true },
+  ]);
+}));
+
+test('failed save retains the rename, replacement, and clear choices for retry', async () => {
+  let attempts = 0;
+  await editCredential([savedField('preserve'), savedField('replace'), savedField('clear')], async ({ root, calls, find }) => {
+    const [preserve, replace, clear] = rows(root);
+    rowInput(preserve, 'Field key (public)').value = 'renamed';
+    rowInput(replace, 'Field key (public)').value = 'renamed-replacement';
+    rowInput(replace, 'Field value').value = 'synthetic-replacement';
+    const checkbox = clearControl(clear); checkbox.checked = true; checkbox.fire('input');
+    assert.equal(await submitCredential(root), false);
+    assert.ok(find('p', 'Synthetic save failure.'));
+    assert.equal(rowInput(rows(root)[0], 'Field key (public)').value, 'renamed');
+    assert.equal(rowInput(rows(root)[1], 'Field value').value, 'synthetic-replacement');
+    assert.equal(clearControl(rows(root)[2]).checked, true);
+    assert.equal(rowInput(rows(root)[2], 'Field value').readOnly, true);
+    assert.equal(await submitCredential(root), true);
+    const [failed, retry] = credentialUpdates(calls);
+    assert.equal(failed.version, 'opaque-v1');
+    assert.deepEqual(failed.fields, [
+      { name: 'renamed', type: 'secret', protected: true, preserveFrom: 'preserve' },
+      { name: 'renamed-replacement', type: 'secret', protected: true, value: 'synthetic-replacement' },
+      { name: 'clear', type: 'secret', protected: true, clear: true },
+    ]);
+    assert.deepEqual(retry, failed);
+  }, () => {
+    if (++attempts === 1) throw new Error('Synthetic save failure.');
+    return { record: { id: 'r' } };
+  });
+});
+
 test('add and remove preserve unsaved field edits, protected replacement, and clear intent', async () => fixture((path, init) => {
   if (path === '/records' && !init?.method) return { records: [{ id: 'r', name: 'Old', template: 'custom', version: 2, fields: [
     { name: 'public', type: 'text', protected: false, value: 'old' },
@@ -312,11 +416,11 @@ test('add and remove preserve unsaved field edits, protected replacement, and cl
   rowInput(publicRow, 'Field type').value = 'url';
   rowInput(publicRow, 'Field value').value = 'https://new.example';
   rowInput(secretRow, 'Field value').value = 'replacement';
-  eraseRow.children.find(c => c.children.some(child => child.textContent === 'Replace stored value with an empty string')).children[0].checked = true;
+  const clear = clearControl(eraseRow); clear.checked = true; clear.fire('input');
   find('button', 'Add field').click();
   assert.equal(rowInput(rows(root)[0], 'Field value').value, 'https://new.example');
   assert.equal(rowInput(rows(root)[1], 'Field value').value, 'replacement');
-  assert.equal(rows(root)[2].children.find(c => c.children.some(child => child.textContent === 'Replace stored value with an empty string')).children[0].checked, true);
+  assert.equal(clearControl(rows(root)[2]).checked, true);
   const added = rows(root).at(-1);
   rowInput(added, 'Field key (public)').value = 'temporary';
   added.children.find(c => c.tagName === 'button' && c.textContent === 'Remove field').click();
@@ -324,7 +428,7 @@ test('add and remove preserve unsaved field edits, protected replacement, and cl
   assert.deepEqual(JSON.parse(calls.find(c => c[0] === '/records/r' && c[1]?.method === 'PUT')[1].body).fields, [
     { name: 'renamed', type: 'url', protected: false, value: 'https://new.example' },
     { name: 'secret', type: 'secret', protected: true, value: 'replacement' },
-    { name: 'erase', type: 'secret', protected: true, value: '' },
+    { name: 'erase', type: 'secret', protected: true, clear: true },
   ]);
 }));
 

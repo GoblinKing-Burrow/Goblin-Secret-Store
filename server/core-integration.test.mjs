@@ -163,6 +163,23 @@ test("actual core child IPC routes/auth header/grants/managed consume/revocation
     assert.deepEqual(await mods[0].host.invoke("secret-reference-resolve:gss",
       `{{gss:${edge.body.record.id}/${encodeURIComponent(names[1])}}}`), { value: "edge-fixture" });
     assert.equal((await http("DELETE", `/records/${edge.body.record.id}`, { version: edge.body.record.version }, undefined, headers)).status, 200);
+    // Exercise the write-only rename and clear through the actual Core mod HTTP host.
+    const sample = (await http("POST", "/records", { name: "rename fixture", template: "custom", fields: [
+      { name: "x-api-key", type: "token", protected: true, value: "rename-fixture-only" },
+    ] }, undefined, headers)).body.record;
+    const samplePath = `/records/${sample.id}`;
+    const target = { name: "x-consumer-api-key", type: "token", protected: true };
+    const accidentalBlank = await http("PUT", samplePath, { ...sample, fields: [{ ...target, value: "" }] }, undefined, headers);
+    assert.deepEqual(accidentalBlank, { status: 400, body: { error: "protected_value_clear_required" } });
+    const renamed = (await http("PUT", samplePath, { ...sample, fields: [{ ...target, preserveFrom: "x-api-key" }] }, undefined, headers)).body.record;
+    assert.deepEqual(renamed.fields, [{ ...target, hasValue: true }]);
+    assert.equal(JSON.stringify(renamed).includes("rename-fixture-only"), false);
+    const beforeRename = `{{gss:${sample.id}/x-api-key}}`, afterRename = `{{gss:${sample.id}/x-consumer-api-key}}`;
+    assert.equal(await resolveSecretReference(mods, afterRename), "rename-fixture-only");
+    await assert.rejects(resolveSecretReference(mods, beforeRename));
+    const cleared = (await http("PUT", samplePath, { ...renamed, fields: [{ ...target, clear: true }] }, undefined, headers)).body.record;
+    assert.deepEqual(cleared.fields, [{ ...target, hasValue: false }]);
+    assert.equal((await http("DELETE", samplePath, { version: cleared.version }, undefined, headers)).status, 200);
     const audit = await http('GET', '/audit?limit=1', {}, undefined, headers);
     assert.equal(audit.status, 200); assert.equal(audit.body.events.length, 1);
     assert.ok(audit.body.nextCursor);

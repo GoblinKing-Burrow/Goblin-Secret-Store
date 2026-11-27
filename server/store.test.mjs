@@ -342,3 +342,65 @@ test("service URL is optional on legacy records and rejects invalid public metad
   r = s.put({ ...r, serviceUrl: "http://10.10.20.110:9000" }, r.id);
   assert.equal(r.serviceUrl, "http://10.10.20.110:9000");
 });
+
+test('protected rename rebinds the stored value, revokes old references, and reports no plaintext', (t) => {
+  const f = fixture(t);
+  const r = f.s.put(input);
+  const previous = f.s.agent('use', { id: r.id, field: 'token' }, caller).$burrowManaged;
+  const req = { ...r, fields: [{ name: 'renamed', type: 'token', protected: true, preserveFrom: 'token' }] };
+  for (const fields of [
+    [{ ...req.fields[0], preserveFrom: undefined, value: '' }],
+    [{ ...req.fields[0], preserveFrom: undefined }],
+    [{ ...req.fields[0], type: 'password' }],
+    [{ ...req.fields[0], value: 'replacement' }],
+    [{ ...req.fields[0], clear: true }],
+    [req.fields[0], { name: 'token', type: 'token', protected: true }],
+  ]) {
+    assert.throws(() => f.s.put({ ...req, fields }, r.id), { statusCode: 400 });
+    assert.deepEqual(f.s.view(f.s.raw(r.id)), r);
+  }
+  const renamed = f.s.put(req, r.id);
+  assert.notEqual(renamed.version, r.version);
+  assert.deepEqual(renamed.fields, [{ name: 'renamed', type: 'token', protected: true, hasValue: true }]);
+  assert.throws(() => f.s.put(req, r.id), /version_conflict/);
+  assert.throws(() => f.s.resolve(previous.reference, { ...caller, version: previous.version }), /denied/);
+  assert.throws(() => f.s.agent('use', { id: r.id, field: 'token' }, caller), /denied/);
+  f.restart();
+  const issued = f.s.agent('use', { id: r.id, field: 'renamed' }, caller).$burrowManaged;
+  assert.equal(f.s.resolve(issued.reference, { ...caller, version: issued.version }), input.fields[0].value);
+  assert.equal(JSON.stringify(renamed).includes(input.fields[0].value), false);
+  assert.equal(readFileSync(path.join(f.directory, 'vault.sqlite')).includes(Buffer.from(input.fields[0].value)), false);
+});
+
+test('protected replacement, clear and legacy empty metadata survive edit, backup and restore', (t) => {
+  const f = fixture(t);
+  const initial = f.s.put(input);
+  const replacement = 'replacement-only-fixture';
+  const next = f.s.put({ ...initial, fields: [{ name: 'new-token', protected: true, type: 'password', value: replacement }] }, initial.id);
+  const ref = f.s.agent('use', { id: next.id, field: 'new-token' }, caller).$burrowManaged;
+  assert.equal(f.s.resolve(ref.reference, { ...caller, version: ref.version }), replacement);
+  const cleared = f.s.put({ ...next, fields: [{ name: 'new-token', protected: true, type: 'password', clear: true }] }, next.id);
+  assert.equal(cleared.fields[0].hasValue, false);
+  assert.throws(() => f.s.resolve(ref.reference, { ...caller, version: ref.version }), /denied/);
+  assert.throws(() => f.s.agent('use', { id: cleared.id, field: 'new-token' }, caller), /denied/);
+  const emptyRename = f.s.put({ ...cleared, fields: [{ name: 'moved', protected: true, type: 'password', preserveFrom: 'new-token' }] }, cleared.id);
+  assert.equal(emptyRename.fields[0].hasValue, false);
+  const legacy = f.s.put({ ...input, fields: [{ ...input.fields[0], value: '' }] });
+  const edited = f.s.put({ ...legacy, name: 'edited', fields: legacy.fields }, legacy.id);
+  assert.equal(edited.fields[0].hasValue, false);
+  const passphrase = 'test-only-backup-passphrase';
+  const { backup } = f.s.backup(passphrase);
+  f.restart().restore(passphrase, backup);
+  assert.equal(f.s.view(f.s.raw(legacy.id)).fields[0].hasValue, false);
+  assert.equal(f.s.view(f.s.raw(cleared.id)).fields[0].hasValue, false);
+});
+
+test('simultaneous renames preserve source row identity rather than target field names', (t) => {
+  const { s } = fixture(t);
+  const r = s.put({ ...input, fields: [input.fields[0], { ...input.fields[0], name: 'second', value: 'second-fixture' }] });
+  const swapped = s.put({ ...r, fields: [{ name: 'second', type: 'token', protected: true, preserveFrom: 'token' }, { name: 'token', type: 'token', protected: true, preserveFrom: 'second' }] }, r.id);
+  for (const [field, expected] of [['second', input.fields[0].value], ['token', 'second-fixture']]) {
+    const ref = s.agent('use', { id: swapped.id, field }, caller).$burrowManaged;
+    assert.equal(s.resolve(ref.reference, { ...caller, version: ref.version }), expected);
+  }
+});
